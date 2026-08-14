@@ -66,7 +66,7 @@ export default function SearchBar() {
     setProduct(null);
 
     try {
-      const response = await fetch("/Api/product", {
+      const response = await fetch("/api/product", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
