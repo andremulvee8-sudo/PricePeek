@@ -10,6 +10,8 @@ type ProductData = {
   rating: number | null;
   image: string | null;
   url: string;
+  targetPrice?: number;
+  databaseId?: string;
 };
 
 export default function SearchBar() {
@@ -42,18 +44,12 @@ export default function SearchBar() {
   async function handleTrack() {
     const trimmedUrl = url.trim();
 
-    if (!trimmedUrl) {
-      setMessage("❌ Please enter a valid Amazon product URL.");
-      setShowProductCard(false);
-      setProduct(null);
-      return;
-    }
-
-    const valid =
-      trimmedUrl.includes("amazon.") &&
-      (trimmedUrl.includes("/dp/") || trimmedUrl.includes("/gp/"));
-
-    if (!valid) {
+    if (
+      !trimmedUrl ||
+      !trimmedUrl.includes("amazon.") ||
+      (!trimmedUrl.includes("/dp/") &&
+        !trimmedUrl.includes("/gp/"))
+    ) {
       setMessage("❌ Please enter a valid Amazon product URL.");
       setShowProductCard(false);
       setProduct(null);
@@ -74,12 +70,11 @@ export default function SearchBar() {
         body: JSON.stringify({ url: trimmedUrl }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "API error");
-      }
-
       const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "API error");
+      }
 
       setProduct({
         ...data.product,
@@ -97,28 +92,100 @@ export default function SearchBar() {
     }
   }
 
-  function handleSaveProduct() {
+  async function handleSaveProduct(targetPrice: number) {
     if (!product) return;
 
-    setTrackedProducts((current) => {
-      const alreadyTracked = current.some(
-        (item) => item.url === product.url
-      );
+    const alreadyTracked = trackedProducts.some(
+      (item) => item.url === product.url
+    );
 
-      if (alreadyTracked) {
-        setMessage("✨ This product is already being tracked.");
-        return current;
+    if (alreadyTracked) {
+      setMessage("✨ This product is already being tracked.");
+      return;
+    }
+
+    const deviceId = window.localStorage.getItem("pricepeek-device-id");
+
+    if (!deviceId) {
+      setMessage("🔔 Enable price-drop alerts before tracking a product.");
+      return;
+    }
+
+    setMessage("⏳ Saving price alert...");
+
+    try {
+      const response = await fetch("/api/tracked-products", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          deviceId,
+          product,
+          targetPrice,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Could not save price alert");
       }
 
-      setMessage("⭐ Product saved to tracked products.");
-      return [...current, product];
-    });
+      setTrackedProducts((current) => [
+        ...current,
+        {
+          ...product,
+          targetPrice,
+          databaseId: data.id,
+        },
+      ]);
+
+      setMessage(`✅ Alert set for €${targetPrice.toFixed(2)}!`);
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not save price alert"
+      );
+    }
   }
 
-  function handleRemoveTrackedProduct(productUrl: string) {
+  async function handleRemoveTrackedProduct(item: ProductData) {
+    const deviceId = window.localStorage.getItem("pricepeek-device-id");
+
+    if (deviceId && item.databaseId) {
+      try {
+        const response = await fetch("/api/tracked-products", {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            deviceId,
+            id: item.databaseId,
+          }),
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || "Could not remove price alert");
+        }
+      } catch (error) {
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "Could not remove price alert"
+        );
+        return;
+      }
+    }
+
     setTrackedProducts((current) =>
-      current.filter((item) => item.url !== productUrl)
+      current.filter((productItem) => productItem.url !== item.url)
     );
+
+    setMessage("Price alert removed.");
   }
 
   return (
@@ -193,7 +260,7 @@ export default function SearchBar() {
           <div className="grid gap-4 md:grid-cols-2">
             {trackedProducts.map((item) => (
               <div
-                key={item.url || `${item.title}-${item.image}`}
+                key={item.databaseId || item.url}
                 className="flex items-start gap-4 rounded-2xl border border-slate-800 bg-slate-950/60 p-4"
               >
                 <img
@@ -210,13 +277,6 @@ export default function SearchBar() {
                     {item.title}
                   </h4>
 
-                  <p className="mt-2 text-sm text-slate-400">
-                    ⭐{" "}
-                    {item.rating != null
-                      ? item.rating.toFixed(1)
-                      : "N/A"}
-                  </p>
-
                   <p className="mt-2 text-lg font-bold text-green-400">
                     €
                     {item.currentPrice != null
@@ -224,10 +284,14 @@ export default function SearchBar() {
                       : "N/A"}
                   </p>
 
+                  {item.targetPrice != null && (
+                    <p className="mt-1 text-sm text-slate-400">
+                      Alert at €{item.targetPrice.toFixed(2)}
+                    </p>
+                  )}
+
                   <button
-                    onClick={() =>
-                      handleRemoveTrackedProduct(item.url)
-                    }
+                    onClick={() => handleRemoveTrackedProduct(item)}
                     className="mt-3 rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 transition hover:border-red-400 hover:text-red-400"
                   >
                     Remove
