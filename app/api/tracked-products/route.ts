@@ -103,3 +103,53 @@ export async function DELETE(request: Request) {
     );
   }
 }
+export async function GET(request: Request) {
+  try {
+    const deviceId = new URL(request.url).searchParams.get("deviceId");
+
+    if (!deviceId) {
+      return NextResponse.json(
+        { error: "Device ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("tracked_products")
+      .select(
+        "id, amazon_url, title, image_url, current_price, target_price"
+      )
+      .eq("device_id", deviceId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 500 }
+      );
+    }
+
+    const products = (data ?? []).map((item) => ({
+      databaseId: item.id,
+      url: item.amazon_url,
+      title: item.title,
+      image: item.image_url,
+      currentPrice: item.current_price,
+      lowestPrice: null,
+      rating: null,
+      targetPrice: item.target_price,
+    }));
+
+    return NextResponse.json({
+      success: true,
+      products,
+    });
+  } catch (error) {
+    console.error("Load tracked products error:", error);
+
+    return NextResponse.json(
+      { error: "Unexpected server error" },
+      { status: 500 }
+    );
+  }
+}

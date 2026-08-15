@@ -23,15 +23,55 @@ export default function SearchBar() {
   const [trackedProducts, setTrackedProducts] = useState<ProductData[]>([]);
 
   useEffect(() => {
-    try {
-      const savedProducts = window.localStorage.getItem("tracked-products");
+    async function loadTrackedProducts() {
+      const deviceId = window.localStorage.getItem(
+        "pricepeek-device-id"
+      );
 
-      if (savedProducts) {
-        setTrackedProducts(JSON.parse(savedProducts));
+      if (!deviceId) {
+        try {
+          const savedProducts =
+            window.localStorage.getItem("tracked-products");
+
+          if (savedProducts) {
+            setTrackedProducts(JSON.parse(savedProducts));
+          }
+        } catch {
+          setTrackedProducts([]);
+        }
+
+        return;
       }
-    } catch {
-      setTrackedProducts([]);
+
+      try {
+        const response = await fetch(
+          `/api/tracked-products?deviceId=${encodeURIComponent(deviceId)}`
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.error || "Could not load tracked products"
+          );
+        }
+
+        setTrackedProducts(data.products);
+      } catch {
+        try {
+          const savedProducts =
+            window.localStorage.getItem("tracked-products");
+
+          if (savedProducts) {
+            setTrackedProducts(JSON.parse(savedProducts));
+          }
+        } catch {
+          setTrackedProducts([]);
+        }
+      }
     }
+
+    loadTrackedProducts();
   }, []);
 
   useEffect(() => {
@@ -84,7 +124,9 @@ export default function SearchBar() {
       setMessage("✅ Product found!");
       setShowProductCard(true);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "API error");
+      setMessage(
+        error instanceof Error ? error.message : "API error"
+      );
       setShowProductCard(false);
       setProduct(null);
     } finally {
@@ -104,10 +146,14 @@ export default function SearchBar() {
       return;
     }
 
-    const deviceId = window.localStorage.getItem("pricepeek-device-id");
+    const deviceId = window.localStorage.getItem(
+      "pricepeek-device-id"
+    );
 
     if (!deviceId) {
-      setMessage("🔔 Enable price-drop alerts before tracking a product.");
+      setMessage(
+        "🔔 Enable price-drop alerts before tracking a product."
+      );
       return;
     }
 
@@ -129,7 +175,9 @@ export default function SearchBar() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Could not save price alert");
+        throw new Error(
+          data.error || "Could not save price alert"
+        );
       }
 
       setTrackedProducts((current) => [
@@ -152,7 +200,9 @@ export default function SearchBar() {
   }
 
   async function handleRemoveTrackedProduct(item: ProductData) {
-    const deviceId = window.localStorage.getItem("pricepeek-device-id");
+    const deviceId = window.localStorage.getItem(
+      "pricepeek-device-id"
+    );
 
     if (deviceId && item.databaseId) {
       try {
@@ -169,7 +219,10 @@ export default function SearchBar() {
 
         if (!response.ok) {
           const data = await response.json();
-          throw new Error(data.error || "Could not remove price alert");
+
+          throw new Error(
+            data.error || "Could not remove price alert"
+          );
         }
       } catch (error) {
         setMessage(
@@ -182,7 +235,9 @@ export default function SearchBar() {
     }
 
     setTrackedProducts((current) =>
-      current.filter((productItem) => productItem.url !== item.url)
+      current.filter(
+        (productItem) => productItem.url !== item.url
+      )
     );
 
     setMessage("Price alert removed.");
@@ -223,7 +278,9 @@ export default function SearchBar() {
       </div>
 
       {message && (
-        <p className="mt-4 text-center text-slate-300">{message}</p>
+        <p className="mt-4 text-center text-slate-300">
+          {message}
+        </p>
       )}
 
       <ProductCard
@@ -232,7 +289,9 @@ export default function SearchBar() {
         onStartTracking={handleSaveProduct}
         isTracked={Boolean(
           product &&
-            trackedProducts.some((item) => item.url === product.url)
+            trackedProducts.some(
+              (item) => item.url === product.url
+            )
         )}
       />
 
@@ -286,12 +345,15 @@ export default function SearchBar() {
 
                   {item.targetPrice != null && (
                     <p className="mt-1 text-sm text-slate-400">
-                      Alert at €{item.targetPrice.toFixed(2)}
+                      Alert at €
+                      {item.targetPrice.toFixed(2)}
                     </p>
                   )}
 
                   <button
-                    onClick={() => handleRemoveTrackedProduct(item)}
+                    onClick={() =>
+                      handleRemoveTrackedProduct(item)
+                    }
                     className="mt-3 rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 transition hover:border-red-400 hover:text-red-400"
                   >
                     Remove
