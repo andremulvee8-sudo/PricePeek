@@ -1,12 +1,13 @@
 import Navbar from "./components/Navbar";
 import Stats from "./components/Stats";
 import SearchBar from "./components/SearchBar";
+import PushNotificationButton from "./components/PushNotificationButton";
+
 export default function Home() {
   return (
     <main className="min-h-screen bg-slate-950 text-white">
       <Navbar />
 
-      {/* Hero */}
       <section className="mx-auto flex max-w-5xl flex-col items-center px-6 pt-20 text-center">
         <span className="rounded-full border border-green-500/40 bg-green-500/10 px-4 py-2 text-sm text-green-300">
           🚀 Track Amazon prices for free
@@ -23,11 +24,10 @@ export default function Home() {
           alerts you when it drops, and helps you avoid overpaying.
         </p>
 
-        {/* Search Box */}
         <SearchBar />
+        <PushNotificationButton />
       </section>
 
-      {/* Features */}
       <section className="mx-auto mt-28 grid max-w-6xl gap-8 px-6 md:grid-cols-3">
         <div className="rounded-3xl border border-slate-800 bg-slate-900 p-8">
           <div className="text-4xl">📈</div>
@@ -49,13 +49,12 @@ export default function Home() {
           <div className="text-4xl">🤖</div>
           <h3 className="mt-6 text-2xl font-bold">Deal Score</h3>
           <p className="mt-3 text-slate-400">
-            Instantly know whether it's a good deal or not.
+            Instantly know whether it&apos;s a good deal or not.
           </p>
         </div>
 
-
-<Stats />
-</section>
+        <Stats />
+      </section>
 
       <footer className="mt-28 border-t border-slate-800 py-10 text-center text-slate-500">
         © 2026 PricePeek. Built with ❤️.

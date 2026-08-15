@@ -21,10 +21,9 @@ export default function SearchBar() {
   const [trackedProducts, setTrackedProducts] = useState<ProductData[]>([]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
     try {
       const savedProducts = window.localStorage.getItem("tracked-products");
+
       if (savedProducts) {
         setTrackedProducts(JSON.parse(savedProducts));
       }
@@ -34,9 +33,10 @@ export default function SearchBar() {
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    window.localStorage.setItem("tracked-products", JSON.stringify(trackedProducts));
+    window.localStorage.setItem(
+      "tracked-products",
+      JSON.stringify(trackedProducts)
+    );
   }, [trackedProducts]);
 
   async function handleTrack() {
@@ -80,10 +80,12 @@ export default function SearchBar() {
       }
 
       const data = await response.json();
+
       setProduct({
         ...data.product,
         url: trimmedUrl,
       });
+
       setMessage("✅ Product found!");
       setShowProductCard(true);
     } catch (error) {
@@ -99,7 +101,9 @@ export default function SearchBar() {
     if (!product) return;
 
     setTrackedProducts((current) => {
-      const alreadyTracked = current.some((item) => item.url === product.url);
+      const alreadyTracked = current.some(
+        (item) => item.url === product.url
+      );
 
       if (alreadyTracked) {
         setMessage("✨ This product is already being tracked.");
@@ -111,8 +115,10 @@ export default function SearchBar() {
     });
   }
 
-  function handleRemoveTrackedProduct(url: string) {
-    setTrackedProducts((current) => current.filter((item) => item.url !== url));
+  function handleRemoveTrackedProduct(productUrl: string) {
+    setTrackedProducts((current) =>
+      current.filter((item) => item.url !== productUrl)
+    );
   }
 
   return (
@@ -121,10 +127,10 @@ export default function SearchBar() {
         <input
           type="url"
           value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
+          onChange={(event) => setUrl(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
               handleTrack();
             }
           }}
@@ -149,10 +155,8 @@ export default function SearchBar() {
         </button>
       </div>
 
-            {message && (
-        <p className="mt-4 text-center text-slate-300">
-          {message}
-        </p>
+      {message && (
+        <p className="mt-4 text-center text-slate-300">{message}</p>
       )}
 
       <ProductCard
@@ -160,13 +164,17 @@ export default function SearchBar() {
         product={product}
         onStartTracking={handleSaveProduct}
         isTracked={Boolean(
-          product && trackedProducts.some((item) => item.url === product.url)
+          product &&
+            trackedProducts.some((item) => item.url === product.url)
         )}
       />
 
       <div className="mt-10 rounded-3xl border border-slate-800 bg-slate-900/70 p-6 shadow-xl">
         <div className="mb-5 flex items-center justify-between">
-          <h3 className="text-xl font-semibold text-white">Tracked Products</h3>
+          <h3 className="text-xl font-semibold text-white">
+            Tracked Products
+          </h3>
+
           <span className="text-sm text-slate-400">
             {trackedProducts.length} saved
           </span>
@@ -174,8 +182,12 @@ export default function SearchBar() {
 
         {trackedProducts.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/40 p-8 text-center text-slate-400">
-            <p className="text-lg font-medium text-slate-300">No tracked products yet.</p>
-            <p className="mt-2 text-sm">Save a product to keep it handy here.</p>
+            <p className="text-lg font-medium text-slate-300">
+              No tracked products yet.
+            </p>
+            <p className="mt-2 text-sm">
+              Save a product to keep it handy here.
+            </p>
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2">
@@ -185,21 +197,37 @@ export default function SearchBar() {
                 className="flex items-start gap-4 rounded-2xl border border-slate-800 bg-slate-950/60 p-4"
               >
                 <img
-                  src={item.image || "https://placehold.co/300x300?text=No+Image"}
+                  src={
+                    item.image ||
+                    "https://placehold.co/300x300?text=No+Image"
+                  }
                   alt={item.title}
                   className="h-20 w-20 rounded-xl object-cover"
                 />
 
                 <div className="min-w-0 flex-1">
-                  <h4 className="font-semibold text-white">{item.title}</h4>
+                  <h4 className="font-semibold text-white">
+                    {item.title}
+                  </h4>
+
                   <p className="mt-2 text-sm text-slate-400">
-                    ⭐ {item.rating != null ? item.rating.toFixed(1) : "N/A"}
+                    ⭐{" "}
+                    {item.rating != null
+                      ? item.rating.toFixed(1)
+                      : "N/A"}
                   </p>
+
                   <p className="mt-2 text-lg font-bold text-green-400">
-                    €{item.currentPrice != null ? item.currentPrice : "N/A"}
+                    €
+                    {item.currentPrice != null
+                      ? item.currentPrice
+                      : "N/A"}
                   </p>
+
                   <button
-                    onClick={() => handleRemoveTrackedProduct(item.url)}
+                    onClick={() =>
+                      handleRemoveTrackedProduct(item.url)
+                    }
                     className="mt-3 rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 transition hover:border-red-400 hover:text-red-400"
                   >
                     Remove
