@@ -113,7 +113,10 @@ export async function GET(request: Request) {
             notification_sent: true,
           })
           .eq("id", product.id);
-
+await supabaseAdmin.from("price_history").insert({
+  tracked_product_id: product.id,
+  price: currentPrice,
+});
         results.push({
           id: product.id,
           status: "notification-sent",
