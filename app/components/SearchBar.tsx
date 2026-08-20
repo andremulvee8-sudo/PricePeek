@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import ProductCard from "./ProductCard";
+import PriceHistoryChart from "./PriceHistoryChart";
 
 type ProductData = {
   title: string;
@@ -45,7 +46,9 @@ export default function SearchBar() {
 
       try {
         const response = await fetch(
-          `/api/tracked-products?deviceId=${encodeURIComponent(deviceId)}`
+          `/api/tracked-products?deviceId=${encodeURIComponent(
+            deviceId
+          )}`
         );
 
         const data = await response.json();
@@ -320,45 +323,52 @@ export default function SearchBar() {
             {trackedProducts.map((item) => (
               <div
                 key={item.databaseId || item.url}
-                className="flex items-start gap-4 rounded-2xl border border-slate-800 bg-slate-950/60 p-4"
+                className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4"
               >
-                <img
-                  src={
-                    item.image ||
-                    "https://placehold.co/300x300?text=No+Image"
-                  }
-                  alt={item.title}
-                  className="h-20 w-20 rounded-xl object-cover"
-                />
-
-                <div className="min-w-0 flex-1">
-                  <h4 className="font-semibold text-white">
-                    {item.title}
-                  </h4>
-
-                  <p className="mt-2 text-lg font-bold text-green-400">
-                    €
-                    {item.currentPrice != null
-                      ? item.currentPrice
-                      : "N/A"}
-                  </p>
-
-                  {item.targetPrice != null && (
-                    <p className="mt-1 text-sm text-slate-400">
-                      Alert at €
-                      {item.targetPrice.toFixed(2)}
-                    </p>
-                  )}
-
-                  <button
-                    onClick={() =>
-                      handleRemoveTrackedProduct(item)
+                <div className="flex items-start gap-4">
+                  <img
+                    src={
+                      item.image ||
+                      "https://placehold.co/300x300?text=No+Image"
                     }
-                    className="mt-3 rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 transition hover:border-red-400 hover:text-red-400"
-                  >
-                    Remove
-                  </button>
+                    alt={item.title}
+                    className="h-20 w-20 rounded-xl object-cover"
+                  />
+
+                  <div className="min-w-0 flex-1">
+                    <h4 className="font-semibold text-white">
+                      {item.title}
+                    </h4>
+
+                    <p className="mt-2 text-lg font-bold text-green-400">
+                      €
+                      {item.currentPrice != null
+                        ? item.currentPrice
+                        : "N/A"}
+                    </p>
+
+                    {item.targetPrice != null && (
+                      <p className="mt-1 text-sm text-slate-400">
+                        Alert at €{item.targetPrice.toFixed(2)}
+                      </p>
+                    )}
+                  </div>
                 </div>
+
+                {item.databaseId && (
+                  <PriceHistoryChart
+                    productId={item.databaseId}
+                  />
+                )}
+
+                <button
+                  onClick={() =>
+                    handleRemoveTrackedProduct(item)
+                  }
+                  className="mt-4 rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 transition hover:border-red-400 hover:text-red-400"
+                >
+                  Remove
+                </button>
               </div>
             ))}
           </div>
