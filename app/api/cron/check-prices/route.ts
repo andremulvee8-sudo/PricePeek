@@ -75,13 +75,38 @@ export async function GET(request: Request) {
         continue;
       }
 
-      await supabaseAdmin
+      const { error: updateError } = await supabaseAdmin
         .from("tracked_products")
         .update({
           current_price: currentPrice,
           last_checked_at: new Date().toISOString(),
         })
         .eq("id", product.id);
+
+      if (updateError) {
+        results.push({
+          id: product.id,
+          status: "product-update-failed",
+          error: updateError.message,
+        });
+        continue;
+      }
+
+      const { error: historyError } = await supabaseAdmin
+        .from("price_history")
+        .insert({
+          tracked_product_id: product.id,
+          price: currentPrice,
+        });
+
+      if (historyError) {
+        results.push({
+          id: product.id,
+          status: "history-save-failed",
+          error: historyError.message,
+        });
+        continue;
+      }
 
       if (currentPrice <= Number(product.target_price)) {
         const { data: pushRecord } = await supabaseAdmin
@@ -113,10 +138,7 @@ export async function GET(request: Request) {
             notification_sent: true,
           })
           .eq("id", product.id);
-await supabaseAdmin.from("price_history").insert({
-  tracked_product_id: product.id,
-  price: currentPrice,
-});
+
         results.push({
           id: product.id,
           status: "notification-sent",
