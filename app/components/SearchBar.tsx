@@ -4,17 +4,54 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import ProductCard from "./ProductCard";
 import PriceHistoryChart from "./PriceHistoryChart";
+import TrackedProductControls from "./TrackedProductControls";
+import {
+  formatCurrency,
+  parseAmazonProductUrl,
+} from "../lib/amazonProduct";
+import { getOrCreateDeviceId } from "../lib/deviceId";
+import { calculateDealStatus } from "../lib/productInsights";
+import type { ProductData } from "../lib/productTypes";
 
-type ProductData = {
-  title: string;
-  currentPrice: number | null;
-  lowestPrice: number | null;
-  rating: number | null;
-  image: string | null;
-  url: string;
-  targetPrice?: number;
-  databaseId?: string;
-};
+function parseStoredProducts(value: string): ProductData[] {
+  const storedProducts = JSON.parse(value) as Array<Partial<ProductData>>;
+
+  if (!Array.isArray(storedProducts)) return [];
+
+  return storedProducts.flatMap((item) => {
+    if (typeof item.url !== "string" || typeof item.title !== "string") {
+      return [];
+    }
+
+    const parsedUrl = parseAmazonProductUrl(item.url);
+
+    if (!parsedUrl) return [];
+
+    const currentPrice =
+      typeof item.currentPrice === "number" ? item.currentPrice : null;
+
+    return [
+      {
+        title: item.title,
+        currentPrice,
+        lowestPrice:
+          typeof item.lowestPrice === "number" ? item.lowestPrice : null,
+        rating: typeof item.rating === "number" ? item.rating : null,
+        image: typeof item.image === "string" ? item.image : null,
+        url: parsedUrl.canonicalUrl,
+        marketplace: parsedUrl.marketplace,
+        asin: parsedUrl.asin,
+        currency: item.currency ?? parsedUrl.currency,
+        dealStatus:
+          item.dealStatus ?? calculateDealStatus(currentPrice, []),
+        targetPrice: item.targetPrice,
+        databaseId: item.databaseId,
+        isActive: item.isActive ?? true,
+        notificationSent: item.notificationSent ?? false,
+      },
+    ];
+  });
+}
 
 export default function SearchBar() {
   const [url, setUrl] = useState("");
@@ -36,7 +73,7 @@ export default function SearchBar() {
             window.localStorage.getItem("tracked-products");
 
           if (savedProducts) {
-            setTrackedProducts(JSON.parse(savedProducts));
+            setTrackedProducts(parseStoredProducts(savedProducts));
           }
         } catch {
           setTrackedProducts([]);
@@ -67,7 +104,7 @@ export default function SearchBar() {
             window.localStorage.getItem("tracked-products");
 
           if (savedProducts) {
-            setTrackedProducts(JSON.parse(savedProducts));
+            setTrackedProducts(parseStoredProducts(savedProducts));
           }
         } catch {
           setTrackedProducts([]);
@@ -87,13 +124,9 @@ export default function SearchBar() {
 
   async function handleTrack() {
     const trimmedUrl = url.trim();
+    const parsedProduct = parseAmazonProductUrl(trimmedUrl);
 
-    if (
-      !trimmedUrl ||
-      !trimmedUrl.includes("amazon.") ||
-      (!trimmedUrl.includes("/dp/") &&
-        !trimmedUrl.includes("/gp/"))
-    ) {
+    if (!parsedProduct) {
       setMessage("❌ Please enter a valid Amazon product URL.");
       setShowProductCard(false);
       setProduct(null);
@@ -122,7 +155,7 @@ export default function SearchBar() {
 
       setProduct({
         ...data.product,
-        url: trimmedUrl,
+        url: parsedProduct.canonicalUrl,
       });
 
       setMessage("✅ Product found!");
@@ -142,7 +175,9 @@ export default function SearchBar() {
     if (!product) return;
 
     const alreadyTracked = trackedProducts.some(
-      (item) => item.url === product.url
+      (item) =>
+        item.marketplace === product.marketplace &&
+        item.asin === product.asin
     );
 
     if (alreadyTracked) {
@@ -150,16 +185,7 @@ export default function SearchBar() {
       return;
     }
 
-    const deviceId = window.localStorage.getItem(
-      "pricepeek-device-id"
-    );
-
-    if (!deviceId) {
-      setMessage(
-        "🔔 Enable price-drop alerts before tracking a product."
-      );
-      return;
-    }
+    const deviceId = getOrCreateDeviceId();
 
     setMessage("⏳ Saving price alert...");
 
@@ -190,16 +216,76 @@ export default function SearchBar() {
           ...product,
           targetPrice,
           databaseId: data.id,
+          isActive: true,
+          notificationSent: false,
         },
       ]);
 
-      setMessage(`✅ Alert set for €${targetPrice.toFixed(2)}!`);
+      setMessage(
+        `✅ Alert set for ${formatCurrency(
+          targetPrice,
+          product.currency
+        )}!`
+      );
     } catch (error) {
       setMessage(
         error instanceof Error
           ? error.message
           : "Could not save price alert"
       );
+    }
+  }
+
+  async function handleUpdateTrackedProduct(
+    item: ProductData,
+    changes: {
+      targetPrice?: number;
+      isActive?: boolean;
+      rearmAlert?: true;
+    },
+    successMessage: string
+  ) {
+    const deviceId = window.localStorage.getItem("pricepeek-device-id");
+
+    if (!deviceId || !item.databaseId) {
+      setMessage("Could not identify this tracked product.");
+      return false;
+    }
+
+    try {
+      const response = await fetch("/api/tracked-products", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          deviceId,
+          id: item.databaseId,
+          ...changes,
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Could not update tracked product");
+      }
+
+      setTrackedProducts((current) =>
+        current.map((currentItem) =>
+          currentItem.databaseId === item.databaseId
+            ? { ...currentItem, ...data.product }
+            : currentItem
+        )
+      );
+      setMessage(successMessage);
+      return true;
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not update tracked product"
+      );
+      return false;
     }
   }
 
@@ -295,7 +381,9 @@ export default function SearchBar() {
         isTracked={Boolean(
           product &&
             trackedProducts.some(
-              (item) => item.url === product.url
+              (item) =>
+                item.marketplace === product.marketplace &&
+                item.asin === product.asin
             )
         )}
       />
@@ -346,25 +434,49 @@ export default function SearchBar() {
                     </h4>
 
                     <p className="mt-2 text-lg font-bold text-green-400">
-                      €
                       {item.currentPrice != null
-                        ? item.currentPrice
+                        ? formatCurrency(item.currentPrice, item.currency)
                         : "N/A"}
                     </p>
 
                     {item.targetPrice != null && (
                       <p className="mt-1 text-sm text-slate-400">
-                        Alert at €{item.targetPrice.toFixed(2)}
+                        Alert at {formatCurrency(
+                          item.targetPrice,
+                          item.currency
+                        )}
                       </p>
                     )}
+
+                    <p className="mt-1 text-sm text-slate-400">
+                      {item.isActive ? "Tracking active" : "Tracking paused"}
+                    </p>
                   </div>
                 </div>
+
+                <p
+                  className={`mt-3 text-sm ${
+                    item.dealStatus.kind === "historical-low"
+                      ? "text-green-400"
+                      : item.dealStatus.kind === "above-low"
+                        ? "text-amber-300"
+                        : "text-slate-400"
+                  }`}
+                >
+                  {item.dealStatus.label}
+                </p>
 
                 {item.databaseId && (
                   <PriceHistoryChart
                     productId={item.databaseId}
+                    currency={item.currency}
                   />
                 )}
+
+                <TrackedProductControls
+                  product={item}
+                  onUpdate={handleUpdateTrackedProduct}
+                />
 
                 <button
                   onClick={() =>

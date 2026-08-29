@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { formatCurrency } from "../lib/amazonProduct";
 import {
   CartesianGrid,
   Line,
@@ -18,10 +19,12 @@ type HistoryItem = {
 
 type PriceHistoryChartProps = {
   productId: string;
+  currency: string;
 };
 
 export default function PriceHistoryChart({
   productId,
+  currency,
 }: PriceHistoryChartProps) {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -114,7 +117,9 @@ export default function PriceHistoryChart({
               axisLine={false}
               width={55}
               domain={["auto", "auto"]}
-              tickFormatter={(value) => `€${Number(value).toFixed(0)}`}
+              tickFormatter={(value) =>
+                formatCurrency(Number(value), currency)
+              }
             />
 
             <Tooltip
@@ -124,7 +129,7 @@ export default function PriceHistoryChart({
                 borderRadius: "12px",
               }}
               formatter={(value) => [
-                `€${Number(value).toFixed(2)}`,
+                formatCurrency(Number(value), currency),
                 "Price",
               ]}
             />

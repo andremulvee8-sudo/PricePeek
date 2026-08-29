@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import webPush from "web-push";
+import {
+  formatCurrency,
+  parseAmazonProductUrl,
+} from "../../../lib/amazonProduct";
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
 import {
   getNextFailedCheckAt,
@@ -40,7 +44,7 @@ export async function GET(request: Request) {
   const { data: products, error } = await supabaseAdmin
     .from("tracked_products")
     .select(
-      "id, device_id, amazon_url, title, current_price, target_price, notification_sent, consecutive_failures"
+      "id, device_id, amazon_url, title, currency, current_price, target_price, notification_sent, consecutive_failures"
     )
     .eq("is_active", true)
     .lte("next_check_at", checkStartedAt.toISOString())
@@ -164,6 +168,9 @@ export async function GET(request: Request) {
           notificationSent
         )
       ) {
+        const currency =
+          product.currency ||
+          parseAmazonProductUrl(product.amazon_url)?.currency;
         const { data: pushRecord } = await supabaseAdmin
           .from("push_subscriptions")
           .select("subscription")
@@ -182,7 +189,11 @@ export async function GET(request: Request) {
           pushRecord.subscription,
           JSON.stringify({
             title: "Price drop on PricePeek! 🎉",
-            body: `${product.title} is now €${currentPrice.toFixed(2)}.`,
+            body: `${product.title} is now ${
+              currency
+                ? formatCurrency(currentPrice, currency)
+                : `${currentPrice.toFixed(2)} (currency unavailable)`
+            }.`,
             url: product.amazon_url,
           })
         );

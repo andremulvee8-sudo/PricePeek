@@ -47,10 +47,15 @@ export async function GET(request: Request) {
       price: Number(item.price),
       checkedAt: item.checked_at,
     }));
+    const lowestPrice =
+      history.length > 0
+        ? Math.min(...history.map((item) => item.price))
+        : null;
 
     return NextResponse.json({
       success: true,
       history,
+      lowestPrice,
     });
   } catch (error) {
     console.error("Price history error:", error);

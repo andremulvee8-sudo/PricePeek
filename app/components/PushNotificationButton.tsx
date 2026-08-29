@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getOrCreateDeviceId } from "../lib/deviceId";
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -13,17 +14,6 @@ function urlBase64ToUint8Array(base64String: string) {
   return Uint8Array.from(
     [...rawData].map((character) => character.charCodeAt(0))
   );
-}
-
-function getDeviceId() {
-  let deviceId = localStorage.getItem("pricepeek-device-id");
-
-  if (!deviceId) {
-    deviceId = crypto.randomUUID();
-    localStorage.setItem("pricepeek-device-id", deviceId);
-  }
-
-  return deviceId;
 }
 
 export default function PushNotificationButton() {
@@ -89,7 +79,7 @@ export default function PushNotificationButton() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          deviceId: getDeviceId(),
+          deviceId: getOrCreateDeviceId(),
           subscription,
         }),
       });

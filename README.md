@@ -59,11 +59,17 @@ The migration is stored in
 baseline tables when absent and adds the scheduling fields, constraints, and
 indexes needed by the current app.
 
+`supabase/migrations/20260829010000_product_tracking_correctness.sql` then adds
+canonical Amazon marketplace and ISO currency fields and enforces uniqueness by
+device, marketplace, and ASIN.
+
 Before applying it to an existing database, take a backup and test it against a
 staging copy. Existing rows that violate the new positive-price or nonnegative
 counter constraints must be corrected first. Existing duplicate `device_id`
 values in `push_subscriptions` or duplicate `identifier` values in
 `api_rate_limits` must also be resolved before the unique indexes can be added.
+Before the second migration, resolve any duplicate tracked-product rows sharing
+the same `device_id`, `marketplace`, and `asin`.
 
 With the Supabase CLI linked to the intended non-production project:
 
@@ -95,8 +101,14 @@ npm.cmd run typecheck
 npm.cmd run build
 ```
 
-Tests focus on scheduled-product eligibility, continued checking after an alert,
-fair ordering, failure backoff, and duplicate-notification suppression.
+Tests cover Amazon URL identity parsing, marketplace currencies, tracking
+deduplication, historical-price deal wording, scheduled-product eligibility,
+failure backoff, and duplicate-notification suppression.
+
+Tracked products use `(device_id, marketplace, asin)` as their canonical unique
+identity. Saving a product does not require notification permission. Target
+prices, active tracking state, and alert re-arming can be managed independently
+from the tracked-products interface.
 
 ## Scheduled price checks
 

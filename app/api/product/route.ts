@@ -1,14 +1,10 @@
 import { NextResponse } from "next/server";
+import { parseAmazonProductUrl } from "../../lib/amazonProduct";
+import { calculateDealStatus } from "../../lib/productInsights";
 import { supabaseAdmin } from "../../lib/supabaseAdmin";
 
 const MAX_REQUESTS = 5;
 const WINDOW_LENGTH_MS = 60 * 60 * 1000;
-
-function isValidAmazonProductUrl(value: string) {
-  return /^https?:\/\/(www\.)?amazon\.[a-z.]+\/(?:dp|gp)\/([A-Za-z0-9]{3,})/i.test(
-    value
-  );
-}
 
 async function checkRateLimit(identifier: string) {
   const now = new Date();
@@ -84,7 +80,10 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!isValidAmazonProductUrl(url)) {
+  const parsedProduct =
+    typeof url === "string" ? parseAmazonProductUrl(url) : null;
+
+  if (!parsedProduct) {
     return NextResponse.json(
       { error: "Please provide a valid Amazon product URL." },
       { status: 400 }
@@ -124,7 +123,7 @@ export async function POST(request: Request) {
     const params = new URLSearchParams({
       api_key: apiKey,
       type: "product",
-      url,
+      url: parsedProduct.canonicalUrl,
     });
 
     const response = await fetch(
@@ -157,25 +156,29 @@ export async function POST(request: Request) {
       );
     }
 
+    const currentPrice =
+      data.product.buybox_winner?.price?.value ??
+      data.product.price?.value ??
+      null;
+    const dealStatus = calculateDealStatus(currentPrice, []);
+
     return NextResponse.json(
       {
         success: true,
         remainingSearches: rateLimit.remaining,
         product: {
           title: data.product.title,
-          currentPrice:
-            data.product.buybox_winner?.price?.value ??
-            data.product.price?.value ??
-            null,
-          lowestPrice:
-            data.product.buybox_winner?.price?.value ??
-            data.product.price?.value ??
-            null,
+          currentPrice,
+          lowestPrice: dealStatus.historicalMinimum,
           rating: data.product.rating ?? null,
           image:
             data.product.main_image?.link ??
             data.product.images?.[0]?.link ??
             null,
+          marketplace: parsedProduct.marketplace,
+          asin: parsedProduct.asin,
+          currency: parsedProduct.currency,
+          dealStatus,
         },
       },
       {

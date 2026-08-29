@@ -2,15 +2,8 @@
 
 import Image from "next/image";
 import { useState } from "react";
-
-type ProductData = {
-  title: string;
-  currentPrice: number | null;
-  lowestPrice: number | null;
-  rating: number | null;
-  image: string | null;
-  url: string;
-};
+import { formatCurrency } from "../lib/amazonProduct";
+import type { ProductData } from "../lib/productTypes";
 
 type ProductCardProps = {
   visible: boolean;
@@ -36,6 +29,12 @@ export default function ProductCard({
   const parsedTargetPrice = Number(targetPrice);
   const validTargetPrice =
     Number.isFinite(parsedTargetPrice) && parsedTargetPrice > 0;
+  const dealStatusColor =
+    product.dealStatus.kind === "historical-low"
+      ? "text-green-400"
+      : product.dealStatus.kind === "above-low"
+        ? "text-amber-300"
+        : "text-slate-400";
 
   return (
     <div className="mt-10 w-full max-w-3xl rounded-3xl border border-slate-800 bg-slate-900 p-8 shadow-xl">
@@ -52,23 +51,32 @@ export default function ProductCard({
         <div className="flex-1">
           <h2 className="text-2xl font-bold">{product.title}</h2>
 
-          <p className="mt-2 font-semibold text-green-400">
-            ⭐ {product.rating != null ? product.rating.toFixed(1) : "N/A"} •
-            Great time to buy
+          <p className={`mt-2 font-semibold ${dealStatusColor}`}>
+            {product.dealStatus.label}
           </p>
+
+          {product.rating != null && (
+            <p className="mt-1 text-sm text-slate-400">
+              Rating: {product.rating.toFixed(1)} / 5
+            </p>
+          )}
 
           <div className="mt-6 grid grid-cols-2 gap-4">
             <div>
               <p className="text-slate-400">Current Price</p>
               <p className="text-2xl font-bold">
-                €{product.currentPrice != null ? product.currentPrice : "N/A"}
+                {product.currentPrice != null
+                  ? formatCurrency(product.currentPrice, product.currency)
+                  : "N/A"}
               </p>
             </div>
 
             <div>
               <p className="text-slate-400">Lowest Price</p>
               <p className="text-2xl font-bold">
-                €{product.lowestPrice != null ? product.lowestPrice : "N/A"}
+                {product.lowestPrice != null
+                  ? formatCurrency(product.lowestPrice, product.currency)
+                  : "Not enough history"}
               </p>
             </div>
           </div>
@@ -82,7 +90,7 @@ export default function ProductCard({
             </label>
 
             <div className="mt-2 flex items-center rounded-xl border border-slate-700 bg-slate-950 px-4">
-              <span className="text-slate-400">€</span>
+              <span className="text-slate-400">{product.currency}</span>
               <input
                 id="target-price"
                 type="number"
