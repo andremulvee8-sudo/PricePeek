@@ -39,7 +39,11 @@ export async function POST(request: Request) {
         current_price: product.currentPrice,
         target_price: targetPrice,
         last_checked_at: new Date().toISOString(),
+        next_check_at: new Date().toISOString(),
+        is_active: true,
         notification_sent: false,
+        consecutive_failures: 0,
+        last_check_error: null,
       })
       .select("id")
       .single();

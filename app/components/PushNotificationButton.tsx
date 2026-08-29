@@ -32,18 +32,26 @@ export default function PushNotificationButton() {
   >("idle");
 
   useEffect(() => {
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-      setStatus("unsupported");
-      return;
+    async function detectNotificationStatus() {
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+        setStatus("unsupported");
+        return;
+      }
+
+      if (Notification.permission === "denied") {
+        setStatus("denied");
+        return;
+      }
+
+      if (Notification.permission === "granted") {
+        const registration = await navigator.serviceWorker.getRegistration();
+        const subscription = await registration?.pushManager.getSubscription();
+
+        setStatus(subscription ? "enabled" : "idle");
+      }
     }
 
-   if (Notification.permission === "granted") {
-  setStatus("idle");
-}
-
-    if (Notification.permission === "denied") {
-      setStatus("denied");
-    }
+    void detectNotificationStatus();
   }, []);
 
   async function enableNotifications() {

@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import webPush from "web-push";
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
+import {
+  getNextFailedCheckAt,
+  getNextSuccessfulCheckAt,
+  PRICE_CHECK_BATCH_SIZE,
+  shouldSendPriceAlert,
+} from "../../../lib/priceCheckScheduling";
 
 export const maxDuration = 300;
 
@@ -29,14 +35,17 @@ export async function GET(request: Request) {
 
   webPush.setVapidDetails(subject, publicKey, privateKey);
 
+  const checkStartedAt = new Date();
+
   const { data: products, error } = await supabaseAdmin
     .from("tracked_products")
     .select(
-      "id, device_id, amazon_url, title, current_price, target_price, notification_sent"
+      "id, device_id, amazon_url, title, current_price, target_price, notification_sent, consecutive_failures"
     )
-    .eq("notification_sent", false)
-    .order("last_checked_at", { ascending: true })
-    .limit(5);
+    .eq("is_active", true)
+    .lte("next_check_at", checkStartedAt.toISOString())
+    .order("next_check_at", { ascending: true })
+    .limit(PRICE_CHECK_BATCH_SIZE);
 
   if (error) {
     return NextResponse.json(
@@ -48,6 +57,28 @@ export async function GET(request: Request) {
   const results = [];
 
   for (const product of products ?? []) {
+    const checkedAt = new Date();
+
+    async function recordFailure(message: string) {
+      const consecutiveFailures = Number(product.consecutive_failures ?? 0) + 1;
+      const { error: failureUpdateError } = await supabaseAdmin
+        .from("tracked_products")
+        .update({
+          last_checked_at: checkedAt.toISOString(),
+          next_check_at: getNextFailedCheckAt(checkedAt, consecutiveFailures),
+          consecutive_failures: consecutiveFailures,
+          last_check_error: message.slice(0, 1000),
+        })
+        .eq("id", product.id);
+
+      if (failureUpdateError) {
+        console.error("Could not record price-check failure:", {
+          id: product.id,
+          message: failureUpdateError.message,
+        });
+      }
+    }
+
     try {
       const params = new URLSearchParams({
         api_key: rainforestApiKey,
@@ -68,18 +99,36 @@ export async function GET(request: Request) {
         null;
 
       if (!response.ok || typeof currentPrice !== "number") {
+        const errorMessage =
+          rainforestData?.request_info?.message ||
+          rainforestData?.error ||
+          `Rainforest lookup failed with status ${response.status}`;
+
+        await recordFailure(errorMessage);
         results.push({
           id: product.id,
           status: "price-check-failed",
+          error: errorMessage,
         });
         continue;
       }
+
+      const targetPrice = Number(product.target_price);
+      const notificationSent = Boolean(product.notification_sent);
+      const shouldRearmNotification =
+        currentPrice > targetPrice && notificationSent;
 
       const { error: updateError } = await supabaseAdmin
         .from("tracked_products")
         .update({
           current_price: currentPrice,
-          last_checked_at: new Date().toISOString(),
+          last_checked_at: checkedAt.toISOString(),
+          next_check_at: getNextSuccessfulCheckAt(checkedAt),
+          consecutive_failures: 0,
+          last_check_error: null,
+          ...(shouldRearmNotification
+            ? { notification_sent: false }
+            : {}),
         })
         .eq("id", product.id);
 
@@ -108,7 +157,13 @@ export async function GET(request: Request) {
         continue;
       }
 
-      if (currentPrice <= Number(product.target_price)) {
+      if (
+        shouldSendPriceAlert(
+          currentPrice,
+          targetPrice,
+          notificationSent
+        )
+      ) {
         const { data: pushRecord } = await supabaseAdmin
           .from("push_subscriptions")
           .select("subscription")
@@ -154,9 +209,14 @@ export async function GET(request: Request) {
     } catch (error) {
       console.error("Price check failed:", error);
 
+      const errorMessage =
+        error instanceof Error ? error.message : "Unexpected price-check error";
+      await recordFailure(errorMessage);
+
       results.push({
         id: product.id,
         status: "unexpected-error",
+        error: errorMessage,
       });
     }
   }

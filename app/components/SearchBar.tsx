@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import ProductCard from "./ProductCard";
 import PriceHistoryChart from "./PriceHistoryChart";
 
@@ -287,6 +288,7 @@ export default function SearchBar() {
       )}
 
       <ProductCard
+        key={product?.url ?? "empty-product"}
         visible={showProductCard}
         product={product}
         onStartTracking={handleSaveProduct}
@@ -326,12 +328,15 @@ export default function SearchBar() {
                 className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4"
               >
                 <div className="flex items-start gap-4">
-                  <img
+                  <Image
                     src={
                       item.image ||
                       "https://placehold.co/300x300?text=No+Image"
                     }
                     alt={item.title}
+                    width={80}
+                    height={80}
+                    unoptimized
                     className="h-20 w-20 rounded-xl object-cover"
                   />
 

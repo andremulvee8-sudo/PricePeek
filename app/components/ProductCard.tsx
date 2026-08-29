@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Image from "next/image";
+import { useState } from "react";
 
 type ProductData = {
   title: string;
@@ -24,15 +25,11 @@ export default function ProductCard({
   onStartTracking,
   isTracked,
 }: ProductCardProps) {
-  const [targetPrice, setTargetPrice] = useState("");
-
-  useEffect(() => {
-    if (product?.currentPrice != null) {
-      setTargetPrice((product.currentPrice * 0.9).toFixed(2));
-    } else {
-      setTargetPrice("");
-    }
-  }, [product?.url, product?.currentPrice]);
+  const [targetPrice, setTargetPrice] = useState(() =>
+    product?.currentPrice != null
+      ? (product.currentPrice * 0.9).toFixed(2)
+      : ""
+  );
 
   if (!visible || !product) return null;
 
@@ -43,9 +40,12 @@ export default function ProductCard({
   return (
     <div className="mt-10 w-full max-w-3xl rounded-3xl border border-slate-800 bg-slate-900 p-8 shadow-xl">
       <div className="flex flex-col gap-6 sm:flex-row">
-        <img
+        <Image
           src={product.image || "https://placehold.co/300x300?text=No+Image"}
           alt={product.title}
+          width={112}
+          height={112}
+          unoptimized
           className="h-28 w-28 rounded-2xl object-cover"
         />
 
