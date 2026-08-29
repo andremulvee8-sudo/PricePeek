@@ -40,6 +40,12 @@ for scheduled checks.
 Browser push requires a secure context. `localhost` is accepted by browsers for
 most development, while device testing should use HTTPS.
 
+For HTTPS development on another device, run:
+
+```powershell
+npm.cmd run dev -- --experimental-https
+```
+
 ## Environment variables
 
 | Variable | Purpose |
@@ -109,6 +115,54 @@ Tracked products use `(device_id, marketplace, asin)` as their canonical unique
 identity. Saving a product does not require notification permission. Target
 prices, active tracking state, and alert re-arming can be managed independently
 from the tracked-products interface.
+
+## Progressive Web App
+
+PricePeek includes a native Next.js web manifest and a small, hand-written
+service worker. On supporting Chromium browsers, use the **Install PricePeek**
+button after the browser exposes its install prompt. On iPhone or iPad, open the
+Share menu and choose **Add to Home Screen**. Installation guidance is hidden
+when the app is already running in standalone mode.
+
+Push-notification permission and application installation are separate. Either
+feature can be used without enabling the other.
+
+### Cache policy
+
+The service worker caches only the public application shell:
+
+- `/`, `/offline`, the web manifest, and PricePeek icon files
+- Same-origin build assets under `/_next/static/`
+
+It never caches `/api/` responses, Supabase data, Amazon product responses,
+tracked-product records, price history, external product images, or arbitrary
+future routes. Network failures during navigation fall back to `/offline`, and
+the live interface displays an offline warning that saved prices may be stale.
+Increase the `SHELL_CACHE` version in `public/sw.js` whenever the shell asset list
+or cache behavior changes.
+
+### Icon assets
+
+- `public/icon-192x192.png`: standard 192 px install icon
+- `public/icon-512x512.png`: standard 512 px install icon
+- `public/icon-maskable-512x512.png`: mask-safe 512 px install icon
+- `public/apple-touch-icon.png`: 180 px Apple touch icon
+- `app/favicon.ico`: multi-size 16/32/48 px favicon
+- `public/notification-badge-96x96.png`: monochrome transparent push badge
+
+The icon family uses the slate and emerald palette from the PricePeek interface.
+
+### PWA testing
+
+After running the standard quality checks, test with production output over
+HTTPS or localhost:
+
+1. Inspect `/manifest.webmanifest` and confirm every icon loads.
+2. In browser developer tools, verify the service worker controls the page.
+3. Confirm offline navigation shows the offline warning or `/offline` fallback.
+4. Confirm requests under `/api/` never appear in Cache Storage.
+5. Exercise install, dismissal, standalone launch, and service-worker update.
+6. On an installed iOS 16.4+ app, separately test push permission and delivery.
 
 ## Scheduled price checks
 

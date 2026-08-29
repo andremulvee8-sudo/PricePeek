@@ -2,6 +2,7 @@ import Navbar from "./components/Navbar";
 import Stats from "./components/Stats";
 import SearchBar from "./components/SearchBar";
 import PushNotificationButton from "./components/PushNotificationButton";
+import PwaControls from "./components/PwaControls";
 
 export default function Home() {
   return (
@@ -25,6 +26,7 @@ export default function Home() {
         </p>
 
         <SearchBar />
+        <PwaControls />
         <PushNotificationButton />
       </section>
 

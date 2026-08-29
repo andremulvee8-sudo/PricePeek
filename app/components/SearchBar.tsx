@@ -336,7 +336,11 @@ export default function SearchBar() {
   return (
     <div className="mt-12 w-full max-w-3xl">
       <div className="flex rounded-2xl border border-slate-800 bg-slate-900 p-2 shadow-2xl">
+        <label htmlFor="amazon-product-url" className="sr-only">
+          Amazon product URL
+        </label>
         <input
+          id="amazon-product-url"
           type="url"
           value={url}
           onChange={(event) => setUrl(event.target.value)}
@@ -347,13 +351,16 @@ export default function SearchBar() {
             }
           }}
           disabled={isLoading}
+          aria-describedby={message ? "product-search-status" : undefined}
           className="flex-1 bg-transparent px-5 py-4 text-white placeholder:text-slate-500 outline-none disabled:cursor-not-allowed disabled:opacity-60"
           placeholder="https://www.amazon.com/..."
         />
 
         <button
+          type="button"
           onClick={handleTrack}
           disabled={isLoading}
+          aria-label={isLoading ? "Checking Amazon product" : "Track price"}
           className="flex min-w-[140px] items-center justify-center rounded-xl bg-green-500 px-8 font-semibold transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-70"
         >
           {isLoading ? (
@@ -368,7 +375,12 @@ export default function SearchBar() {
       </div>
 
       {message && (
-        <p className="mt-4 text-center text-slate-300">
+        <p
+          id="product-search-status"
+          role="status"
+          aria-live="polite"
+          className="mt-4 text-center text-slate-300"
+        >
           {message}
         </p>
       )}
@@ -479,9 +491,11 @@ export default function SearchBar() {
                 />
 
                 <button
+                  type="button"
                   onClick={() =>
                     handleRemoveTrackedProduct(item)
                   }
+                  aria-label={`Remove ${item.title} from tracked products`}
                   className="mt-4 rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 transition hover:border-red-400 hover:text-red-400"
                 >
                   Remove
