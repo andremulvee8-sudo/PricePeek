@@ -53,6 +53,8 @@ npm.cmd run dev -- --experimental-https
 | `RAINFOREST_API_KEY` | Server-side Amazon product lookup |
 | `SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_SECRET_KEY` | Server-only Supabase administrative key |
+| `NEXT_PUBLIC_SUPABASE_URL` | Browser-safe copy of the Supabase project URL used for Auth |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Browser-safe Supabase publishable key used for Auth |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Browser-safe Web Push public key |
 | `VAPID_PRIVATE_KEY` | Server-only Web Push private key |
 | `VAPID_SUBJECT` | VAPID contact, normally a `mailto:` URL |
@@ -69,13 +71,21 @@ indexes needed by the current app.
 canonical Amazon marketplace and ISO currency fields and enforces uniqueness by
 device, marketplace, and ASIN.
 
+`supabase/migrations/20260831000000_account_ownership.sql` adds optional account
+ownership to products and push subscriptions, account-level deduplication
+indexes, and row-level security policies. Existing rows are preserved with a
+null account owner and remain available to their original browser until that
+browser signs in and claims them.
+
 Before applying it to an existing database, take a backup and test it against a
 staging copy. Existing rows that violate the new positive-price or nonnegative
 counter constraints must be corrected first. Existing duplicate `device_id`
 values in `push_subscriptions` or duplicate `identifier` values in
 `api_rate_limits` must also be resolved before the unique indexes can be added.
 Before the second migration, resolve any duplicate tracked-product rows sharing
-the same `device_id`, `marketplace`, and `asin`.
+the same `device_id`, `marketplace`, and `asin`. Before the account migration,
+confirm `auth.users` is available and review existing grants and policies on all
+four public application tables.
 
 With the Supabase CLI linked to the intended non-production project:
 
@@ -110,11 +120,30 @@ npm.cmd run build
 Tests cover Amazon URL identity parsing, marketplace currencies, tracking
 deduplication, historical-price deal wording, scheduled-product eligibility,
 failure backoff, and duplicate-notification suppression.
+They also cover account/device ownership selection and claim deduplication
+decisions.
 
 Tracked products use `(device_id, marketplace, asin)` as their canonical unique
 identity. Saving a product does not require notification permission. Target
 prices, active tracking state, and alert re-arming can be managed independently
 from the tracked-products interface.
+
+## Accounts and cross-device sync
+
+PricePeek supports passwordless email magic links through Supabase Auth. Signed
+out visitors can continue tracking with a random browser device ID. After a
+verified sign-in, PricePeek links that browser's anonymous products and push
+subscription to the account. Products then load on every signed-in device, and
+alert delivery can fan out to each subscribed account device.
+
+Configure the Supabase Auth Site URL to the production origin and allow the
+local development origins under Authentication → URL Configuration. Email
+magic links are rate-limited by Supabase. Never expose `SUPABASE_SECRET_KEY` to
+the browser; only the publishable key belongs in a `NEXT_PUBLIC_` variable.
+
+Signing out detaches the current browser's push subscription from the account.
+Claimed products remain account-owned and require signing in again; this avoids
+leaking account data back into an anonymous browser session.
 
 ## Progressive Web App
 
@@ -178,7 +207,7 @@ price rises above the target.
 
 ## Deployment
 
-1. Apply the reviewed migration to staging.
+1. Apply every reviewed migration in filename order to staging.
 2. Configure every environment variable in the staging deployment.
 3. Run the quality checks above.
 4. Deploy to staging and verify product lookup, tracking, deletion, price
@@ -189,4 +218,6 @@ price rises above the target.
    production secrets, and deploy.
 
 Never expose `SUPABASE_SECRET_KEY`, `VAPID_PRIVATE_KEY`, `RAINFOREST_API_KEY`, or
-`CRON_SECRET` through client components or `NEXT_PUBLIC_` variables.
+`CRON_SECRET` through client components or `NEXT_PUBLIC_` variables. The
+Supabase project URL, publishable key, and VAPID public key are intentionally
+browser-safe.

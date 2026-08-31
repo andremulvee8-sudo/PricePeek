@@ -1,17 +1,21 @@
 import { NextResponse } from "next/server";
 import { parseAmazonProductUrl } from "../../lib/amazonProduct";
 import { calculateDealStatus } from "../../lib/productInsights";
+import { getOwnerColumn } from "../../lib/ownership";
+import { resolveRequestOwner } from "../../lib/requestOwner";
 import { supabaseAdmin } from "../../lib/supabaseAdmin";
 
 export async function POST(request: Request) {
   try {
     const { deviceId, product, targetPrice } = await request.json();
+    const owner = await resolveRequestOwner(request, deviceId);
     const parsedProduct =
       typeof product?.url === "string"
         ? parseAmazonProductUrl(product.url)
         : null;
 
     if (
+      !owner ||
       typeof deviceId !== "string" ||
       deviceId.trim().length === 0 ||
       !product ||
@@ -27,14 +31,20 @@ export async function POST(request: Request) {
       );
     }
 
-    const { data: existingProduct, error: existingProductError } =
-      await supabaseAdmin
+    const ownerColumn = getOwnerColumn(owner);
+    let existingProductQuery = supabaseAdmin
         .from("tracked_products")
         .select("id")
-        .eq("device_id", deviceId)
+        .eq(ownerColumn.column, ownerColumn.value)
         .eq("marketplace", parsedProduct.marketplace)
-        .eq("asin", parsedProduct.asin)
-        .maybeSingle();
+        .eq("asin", parsedProduct.asin);
+
+    if (owner.kind === "device") {
+      existingProductQuery = existingProductQuery.is("owner_user_id", null);
+    }
+
+    const { data: existingProduct, error: existingProductError } =
+      await existingProductQuery.maybeSingle();
 
     if (existingProductError) {
       throw new Error(existingProductError.message);
@@ -54,6 +64,7 @@ export async function POST(request: Request) {
       .from("tracked_products")
       .insert({
         device_id: deviceId,
+        owner_user_id: owner.kind === "user" ? owner.userId : null,
         amazon_url: parsedProduct.canonicalUrl,
         marketplace: parsedProduct.marketplace,
         asin: parsedProduct.asin,
@@ -128,8 +139,10 @@ export async function PATCH(request: Request) {
   try {
     const { deviceId, id, targetPrice, isActive, rearmAlert } =
       await request.json();
+    const owner = await resolveRequestOwner(request, deviceId);
 
     if (
+      !owner ||
       typeof deviceId !== "string" ||
       deviceId.trim().length === 0 ||
       typeof id !== "string"
@@ -190,11 +203,18 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const { data, error } = await supabaseAdmin
+    const ownerColumn = getOwnerColumn(owner);
+    let updateQuery = supabaseAdmin
       .from("tracked_products")
       .update(updates)
       .eq("id", id)
-      .eq("device_id", deviceId)
+      .eq(ownerColumn.column, ownerColumn.value);
+
+    if (owner.kind === "device") {
+      updateQuery = updateQuery.is("owner_user_id", null);
+    }
+
+    const { data, error } = await updateQuery
       .select("target_price, is_active, notification_sent")
       .single();
 
@@ -226,19 +246,27 @@ export async function PATCH(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const { deviceId, id } = await request.json();
+    const owner = await resolveRequestOwner(request, deviceId);
 
-    if (typeof deviceId !== "string" || typeof id !== "string") {
+    if (!owner || typeof deviceId !== "string" || typeof id !== "string") {
       return NextResponse.json(
         { error: "Device ID and product ID are required" },
         { status: 400 }
       );
     }
 
-    const { error } = await supabaseAdmin
+    const ownerColumn = getOwnerColumn(owner);
+    let deleteQuery = supabaseAdmin
       .from("tracked_products")
       .delete()
       .eq("id", id)
-      .eq("device_id", deviceId);
+      .eq(ownerColumn.column, ownerColumn.value);
+
+    if (owner.kind === "device") {
+      deleteQuery = deleteQuery.is("owner_user_id", null);
+    }
+
+    const { error } = await deleteQuery;
 
     if (error) {
       return NextResponse.json(
@@ -260,21 +288,30 @@ export async function DELETE(request: Request) {
 export async function GET(request: Request) {
   try {
     const deviceId = new URL(request.url).searchParams.get("deviceId");
+    const owner = await resolveRequestOwner(request, deviceId);
 
-    if (!deviceId) {
+    if (!owner || !deviceId) {
       return NextResponse.json(
         { error: "Device ID is required" },
         { status: 400 }
       );
     }
 
-    const { data, error } = await supabaseAdmin
+    const ownerColumn = getOwnerColumn(owner);
+    let productsQuery = supabaseAdmin
       .from("tracked_products")
       .select(
         "id, amazon_url, marketplace, asin, currency, title, image_url, current_price, target_price, is_active, notification_sent"
       )
-      .eq("device_id", deviceId)
-      .order("created_at", { ascending: false });
+      .eq(ownerColumn.column, ownerColumn.value);
+
+    if (owner.kind === "device") {
+      productsQuery = productsQuery.is("owner_user_id", null);
+    }
+
+    const { data, error } = await productsQuery.order("created_at", {
+      ascending: false,
+    });
 
     if (error) {
       return NextResponse.json(

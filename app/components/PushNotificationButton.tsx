@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getOrCreateDeviceId } from "../lib/deviceId";
+import { useAuth } from "./AuthProvider";
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
@@ -17,6 +18,7 @@ function urlBase64ToUint8Array(base64String: string) {
 }
 
 export default function PushNotificationButton() {
+  const { accessToken } = useAuth();
   const [status, setStatus] = useState<
     "idle" | "loading" | "enabled" | "unsupported" | "denied" | "error"
   >("idle");
@@ -77,6 +79,9 @@ export default function PushNotificationButton() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(accessToken
+            ? { Authorization: `Bearer ${accessToken}` }
+            : {}),
         },
         body: JSON.stringify({
           deviceId: getOrCreateDeviceId(),

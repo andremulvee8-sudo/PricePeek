@@ -12,6 +12,7 @@ import {
 import { getOrCreateDeviceId } from "../lib/deviceId";
 import { calculateDealStatus } from "../lib/productInsights";
 import type { ProductData } from "../lib/productTypes";
+import { useAuth } from "./AuthProvider";
 
 function parseStoredProducts(value: string): ProductData[] {
   const storedProducts = JSON.parse(value) as Array<Partial<ProductData>>;
@@ -54,6 +55,7 @@ function parseStoredProducts(value: string): ProductData[] {
 }
 
 export default function SearchBar() {
+  const { accessToken, isLoading: isAuthLoading, ownershipVersion } = useAuth();
   const [url, setUrl] = useState("");
   const [message, setMessage] = useState("");
   const [showProductCard, setShowProductCard] = useState(false);
@@ -63,30 +65,20 @@ export default function SearchBar() {
 
   useEffect(() => {
     async function loadTrackedProducts() {
-      const deviceId = window.localStorage.getItem(
-        "pricepeek-device-id"
-      );
+      if (isAuthLoading) return;
 
-      if (!deviceId) {
-        try {
-          const savedProducts =
-            window.localStorage.getItem("tracked-products");
-
-          if (savedProducts) {
-            setTrackedProducts(parseStoredProducts(savedProducts));
-          }
-        } catch {
-          setTrackedProducts([]);
-        }
-
-        return;
-      }
+      const deviceId = getOrCreateDeviceId();
 
       try {
         const response = await fetch(
           `/api/tracked-products?deviceId=${encodeURIComponent(
             deviceId
-          )}`
+          )}`,
+          {
+            headers: accessToken
+              ? { Authorization: `Bearer ${accessToken}` }
+              : undefined,
+          }
         );
 
         const data = await response.json();
@@ -113,7 +105,7 @@ export default function SearchBar() {
     }
 
     loadTrackedProducts();
-  }, []);
+  }, [accessToken, isAuthLoading, ownershipVersion]);
 
   useEffect(() => {
     window.localStorage.setItem(
@@ -194,6 +186,9 @@ export default function SearchBar() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(accessToken
+            ? { Authorization: `Bearer ${accessToken}` }
+            : {}),
         },
         body: JSON.stringify({
           deviceId,
@@ -257,6 +252,9 @@ export default function SearchBar() {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
+          ...(accessToken
+            ? { Authorization: `Bearer ${accessToken}` }
+            : {}),
         },
         body: JSON.stringify({
           deviceId,
@@ -300,6 +298,9 @@ export default function SearchBar() {
           method: "DELETE",
           headers: {
             "Content-Type": "application/json",
+            ...(accessToken
+              ? { Authorization: `Bearer ${accessToken}` }
+              : {}),
           },
           body: JSON.stringify({
             deviceId,

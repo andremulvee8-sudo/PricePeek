@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { getOwnerColumn } from "../../lib/ownership";
+import { resolveRequestOwner } from "../../lib/requestOwner";
 import { supabaseAdmin } from "../../lib/supabaseAdmin";
 
 export async function GET(request: Request) {
@@ -6,21 +8,28 @@ export async function GET(request: Request) {
     const searchParams = new URL(request.url).searchParams;
     const productId = searchParams.get("productId");
     const deviceId = searchParams.get("deviceId");
+    const owner = await resolveRequestOwner(request, deviceId);
 
-    if (!productId || !deviceId) {
+    if (!productId || !deviceId || !owner) {
       return NextResponse.json(
         { error: "Product ID and device ID are required" },
         { status: 400 }
       );
     }
 
-    const { data: trackedProduct, error: productError } =
-      await supabaseAdmin
+    const ownerColumn = getOwnerColumn(owner);
+    let productQuery = supabaseAdmin
         .from("tracked_products")
         .select("id")
         .eq("id", productId)
-        .eq("device_id", deviceId)
-        .single();
+        .eq(ownerColumn.column, ownerColumn.value);
+
+    if (owner.kind === "device") {
+      productQuery = productQuery.is("owner_user_id", null);
+    }
+
+    const { data: trackedProduct, error: productError } =
+      await productQuery.single();
 
     if (productError || !trackedProduct) {
       return NextResponse.json(

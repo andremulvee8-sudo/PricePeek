@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { formatCurrency } from "../lib/amazonProduct";
+import { useAuth } from "./AuthProvider";
 import {
   CartesianGrid,
   Line,
@@ -26,11 +27,14 @@ export default function PriceHistoryChart({
   productId,
   currency,
 }: PriceHistoryChartProps) {
+  const { accessToken, isLoading: isAuthLoading } = useAuth();
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function loadHistory() {
+      if (isAuthLoading) return;
+
       const deviceId = window.localStorage.getItem(
         "pricepeek-device-id"
       );
@@ -44,7 +48,12 @@ export default function PriceHistoryChart({
         const response = await fetch(
           `/api/price-history?productId=${encodeURIComponent(
             productId
-          )}&deviceId=${encodeURIComponent(deviceId)}`
+          )}&deviceId=${encodeURIComponent(deviceId)}`,
+          {
+            headers: accessToken
+              ? { Authorization: `Bearer ${accessToken}` }
+              : undefined,
+          }
         );
 
         const data = await response.json();
@@ -60,7 +69,7 @@ export default function PriceHistoryChart({
     }
 
     loadHistory();
-  }, [productId]);
+  }, [accessToken, isAuthLoading, productId]);
 
   if (isLoading) {
     return (

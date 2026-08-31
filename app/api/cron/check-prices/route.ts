@@ -44,7 +44,7 @@ export async function GET(request: Request) {
   const { data: products, error } = await supabaseAdmin
     .from("tracked_products")
     .select(
-      "id, device_id, amazon_url, title, currency, current_price, target_price, notification_sent, consecutive_failures"
+      "id, device_id, owner_user_id, amazon_url, title, currency, current_price, target_price, notification_sent, consecutive_failures"
     )
     .eq("is_active", true)
     .lte("next_check_at", checkStartedAt.toISOString())
@@ -171,13 +171,17 @@ export async function GET(request: Request) {
         const currency =
           product.currency ||
           parseAmazonProductUrl(product.amazon_url)?.currency;
-        const { data: pushRecord } = await supabaseAdmin
+        let subscriptionQuery = supabaseAdmin
           .from("push_subscriptions")
-          .select("subscription")
-          .eq("device_id", product.device_id)
-          .single();
+          .select("subscription");
 
-        if (!pushRecord?.subscription) {
+        subscriptionQuery = product.owner_user_id
+          ? subscriptionQuery.eq("owner_user_id", product.owner_user_id)
+          : subscriptionQuery.eq("device_id", product.device_id);
+
+        const { data: pushRecords } = await subscriptionQuery;
+
+        if (!pushRecords || pushRecords.length === 0) {
           results.push({
             id: product.id,
             status: "subscription-not-found",
@@ -185,17 +189,23 @@ export async function GET(request: Request) {
           continue;
         }
 
-        await webPush.sendNotification(
-          pushRecord.subscription,
-          JSON.stringify({
-            title: "Price drop on PricePeek! 🎉",
-            body: `${product.title} is now ${
-              currency
-                ? formatCurrency(currentPrice, currency)
-                : `${currentPrice.toFixed(2)} (currency unavailable)`
-            }.`,
-            url: product.amazon_url,
-          })
+        const notificationPayload = JSON.stringify({
+          title: "Price drop on PricePeek! 🎉",
+          body: `${product.title} is now ${
+            currency
+              ? formatCurrency(currentPrice, currency)
+              : `${currentPrice.toFixed(2)} (currency unavailable)`
+          }.`,
+          url: product.amazon_url,
+        });
+
+        await Promise.all(
+          pushRecords.map((pushRecord) =>
+            webPush.sendNotification(
+              pushRecord.subscription,
+              notificationPayload
+            )
+          )
         );
 
         await supabaseAdmin
