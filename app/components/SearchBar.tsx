@@ -336,7 +336,7 @@ export default function SearchBar() {
 
   return (
     <div className="mt-12 w-full max-w-3xl">
-      <div className="flex rounded-2xl border border-slate-800 bg-slate-900 p-2 shadow-2xl">
+      <div className="flex flex-col gap-2 rounded-2xl border border-slate-800 bg-slate-900 p-2 shadow-2xl sm:flex-row">
         <label htmlFor="amazon-product-url" className="sr-only">
           Amazon product URL
         </label>
@@ -353,7 +353,7 @@ export default function SearchBar() {
           }}
           disabled={isLoading}
           aria-describedby={message ? "product-search-status" : undefined}
-          className="flex-1 bg-transparent px-5 py-4 text-white placeholder:text-slate-500 outline-none disabled:cursor-not-allowed disabled:opacity-60"
+          className="min-w-0 flex-1 bg-transparent px-4 py-4 text-white placeholder:text-slate-500 outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:px-5"
           placeholder="https://www.amazon.com/..."
         />
 
@@ -362,7 +362,7 @@ export default function SearchBar() {
           onClick={handleTrack}
           disabled={isLoading}
           aria-label={isLoading ? "Checking Amazon product" : "Track price"}
-          className="flex min-w-[140px] items-center justify-center rounded-xl bg-green-500 px-8 font-semibold transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-70"
+          className="flex min-h-12 items-center justify-center rounded-xl bg-green-500 px-8 py-3 font-semibold transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-70 sm:min-w-[140px] sm:py-0"
         >
           {isLoading ? (
             <>

@@ -82,6 +82,11 @@ self-expiring database lease for the scheduled checker. It creates no foreign
 keys to application data and does not rewrite tracked products or price
 history.
 
+`supabase/migrations/20260903010000_cron_run_health.sql` adds an operational
+run ledger for the public service-status view. It stores timestamps, states,
+and aggregate counts only. It never stores product IDs, URLs, prices, account
+identifiers, device identifiers, or push subscriptions.
+
 Before applying it to an existing database, take a backup and test it against a
 staging copy. Existing rows that violate the new positive-price or nonnegative
 counter constraints must be corrected first. Existing duplicate `device_id`
@@ -127,6 +132,9 @@ deduplication, historical-price deal wording, scheduled-product eligibility,
 failure backoff, and duplicate-notification suppression.
 They also cover account/device ownership selection and claim deduplication
 decisions, sign-in error wording, and expired push-subscription detection.
+Launch-readiness tests also cover account-deletion confirmation, privacy-safe
+cron summaries, and health classification for successful, partial, stale, and
+stalled runs.
 
 Tracked products use `(device_id, marketplace, asin)` as their canonical unique
 identity. Saving a product does not require notification permission. Target
@@ -152,6 +160,22 @@ Signing out detaches the current browser's push subscription from the account.
 Claimed products remain account-owned and require signing in again; this avoids
 leaking account data back into an anonymous browser session.
 
+### Account deletion and privacy
+
+The Account menu links to notification settings and the privacy notice. To
+prevent accidental deletion, a signed-in user must enter the account email
+before the server accepts the request. The server validates the current access
+token and uses the server-only Supabase admin client to delete that exact Auth
+user. Existing foreign keys then cascade to account-owned tracked products and
+push subscriptions, while each product cascades to its price history. The
+browser also removes its locally cached product list and local push
+subscription. This action is permanent.
+
+The public `/privacy` page documents the data PricePeek stores, its service
+providers, user controls, and price-accuracy limitations. Before a broader
+public launch, review the notice for the jurisdictions where the service will
+be offered and add an appropriate support contact when one is available.
+
 ## Progressive Web App
 
 PricePeek includes a native Next.js web manifest and a small, hand-written
@@ -162,6 +186,11 @@ when the app is already running in standalone mode.
 
 Push-notification permission and application installation are separate. Either
 feature can be used without enabling the other.
+
+Push alerts can also be disabled from Notification settings. Disabling removes
+the local browser subscription and asks the server to delete that device's
+stored endpoint. Email is used for passwordless sign-in only; PricePeek does
+not currently send marketing messages or price alerts by email.
 
 ### Cache policy
 
@@ -214,13 +243,29 @@ Expired push endpoints are removed individually; a stale endpoint cannot stop
 delivery to the other subscribed devices. A price alert is marked as sent only
 after at least one device accepts it.
 
+Each non-overlapping invocation writes a row to `price_check_runs`. The row
+contains only start/completion times, a status, and aggregate result counts.
+`/status` gives visitors a plain-language health view, while `/api/health`
+provides the same privacy-safe state for an uptime monitor. The health response
+uses `Cache-Control: no-store`, returns HTTP 503 for missing, stale, partial, or
+failed runs, and exposes no customer or product records. The first status will
+remain degraded until a scheduled check runs after this migration is applied.
+
+Cron responses are aggregate-only: checked, updated, notification, and failure
+counts. Per-product lookup errors remain in the existing scheduling/error
+fields so operators can diagnose them through protected database access.
+The same daily job removes API rate-limit identifiers whose windows ended more
+than seven days earlier.
+
 A product remains active after a notification. The notification flag suppresses
 duplicates while its price stays at or below the target and is re-armed after the
 price rises above the target.
 
 ## Deployment
 
-1. Apply every reviewed migration in filename order to staging.
+1. Apply every reviewed migration in filename order to staging. Deploy code
+   that reads `price_check_runs` only after
+   `20260903010000_cron_run_health.sql` has been applied.
 2. Configure every environment variable in the staging deployment.
 3. Run the quality checks above.
 4. Deploy to staging and verify product lookup, tracking, deletion, price

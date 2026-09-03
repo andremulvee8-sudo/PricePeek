@@ -14,7 +14,7 @@ export default function Home() {
           🚀 Track Amazon prices for free
         </span>
 
-        <h1 className="mt-8 text-6xl font-extrabold leading-tight md:text-7xl">
+        <h1 className="mt-8 text-4xl font-extrabold leading-tight sm:text-6xl md:text-7xl">
           Know the <span className="text-green-400">perfect time</span>
           <br />
           to buy.
@@ -41,9 +41,10 @@ export default function Home() {
 
         <div className="rounded-3xl border border-slate-800 bg-slate-900 p-8">
           <div className="text-4xl">🔔</div>
-          <h3 className="mt-6 text-2xl font-bold">Instant Alerts</h3>
+          <h3 className="mt-6 text-2xl font-bold">Target Alerts</h3>
           <p className="mt-3 text-slate-400">
-            Receive notifications the moment prices drop.
+            Receive a notification after a scheduled check finds your target
+            price.
           </p>
         </div>
 
@@ -54,12 +55,20 @@ export default function Home() {
             Instantly know whether it&apos;s a good deal or not.
           </p>
         </div>
-
-        <Stats />
       </section>
 
-      <footer className="mt-28 border-t border-slate-800 py-10 text-center text-slate-500">
-        © 2026 PricePeek. Built with ❤️.
+      <Stats />
+
+      <footer className="mt-28 border-t border-slate-800 px-6 py-10 text-center text-slate-500">
+        <p>© 2026 PricePeek.</p>
+        <nav aria-label="Footer navigation" className="mt-3 flex justify-center gap-5 text-sm">
+          <a className="hover:text-green-400" href="/privacy">
+            Privacy
+          </a>
+          <a className="hover:text-green-400" href="/status">
+            Service status
+          </a>
+        </nav>
       </footer>
     </main>
   );

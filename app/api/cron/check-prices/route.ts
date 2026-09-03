@@ -11,6 +11,7 @@ import {
   PRICE_CHECK_BATCH_SIZE,
   shouldSendPriceAlert,
 } from "../../../lib/priceCheckScheduling";
+import { summarizeCronResults } from "../../../lib/cronHealth";
 import { isExpiredPushSubscriptionError } from "../../../lib/pushDelivery";
 
 export const maxDuration = 300;
@@ -62,6 +63,36 @@ export async function GET(request: Request) {
     });
   }
 
+  const { data: run, error: runError } = await supabaseAdmin
+    .from("price_check_runs")
+    .insert({ status: "running" })
+    .select("id")
+    .single();
+
+  if (runError || !run) {
+    console.error("Could not create a price-check run record:", {
+      code: runError?.code,
+    });
+    return NextResponse.json(
+      { error: "Could not start the scheduled price check" },
+      { status: 500 }
+    );
+  }
+
+  const rateLimitRetentionCutoff = new Date(
+    Date.now() - 7 * 24 * 60 * 60 * 1000
+  ).toISOString();
+  const { error: rateLimitCleanupError } = await supabaseAdmin
+    .from("api_rate_limits")
+    .delete()
+    .lt("window_started_at", rateLimitRetentionCutoff);
+
+  if (rateLimitCleanupError) {
+    console.error("Could not remove expired rate-limit records:", {
+      code: rateLimitCleanupError.code,
+    });
+  }
+
   const checkStartedAt = new Date();
 
   const { data: products, error } = await supabaseAdmin
@@ -75,8 +106,24 @@ export async function GET(request: Request) {
     .limit(PRICE_CHECK_BATCH_SIZE);
 
   if (error) {
+    const completedAt = new Date().toISOString();
+    const { error: runUpdateError } = await supabaseAdmin
+      .from("price_check_runs")
+      .update({
+        status: "failed",
+        completed_at: completedAt,
+        failure_count: 1,
+      })
+      .eq("id", run.id);
+
+    if (runUpdateError) {
+      console.error("Could not complete a failed price-check run:", {
+        code: runUpdateError.code,
+      });
+    }
+
     return NextResponse.json(
-      { error: error.message },
+      { error: "Could not load the scheduled price-check queue" },
       { status: 500 }
     );
   }
@@ -340,9 +387,35 @@ export async function GET(request: Request) {
     }
   }
 
+  const summary = summarizeCronResults(results);
+  const { error: runUpdateError } = await supabaseAdmin
+    .from("price_check_runs")
+    .update({
+      status: summary.status,
+      completed_at: new Date().toISOString(),
+      checked_count: summary.checkedCount,
+      updated_count: summary.updatedCount,
+      notification_count: summary.notificationCount,
+      failure_count: summary.failureCount,
+    })
+    .eq("id", run.id);
+
+  if (runUpdateError) {
+    console.error("Could not save the price-check run summary:", {
+      code: runUpdateError.code,
+    });
+    return NextResponse.json(
+      { error: "Price checks completed but health reporting failed" },
+      { status: 500 }
+    );
+  }
+
   return NextResponse.json({
-    success: true,
-    checked: results.length,
-    results,
+    success: summary.status !== "failed",
+    status: summary.status,
+    checked: summary.checkedCount,
+    updated: summary.updatedCount,
+    notificationsSent: summary.notificationCount,
+    failures: summary.failureCount,
   });
 }

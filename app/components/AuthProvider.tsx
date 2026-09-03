@@ -20,6 +20,7 @@ type AuthContextValue = {
   ownershipVersion: number;
   sendMagicLink: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: (confirmationEmail: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -122,6 +123,41 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         const { error } = await supabase.auth.signOut();
         if (error) throw error;
         claimedUserId.current = null;
+        setOwnershipVersion((version) => version + 1);
+      },
+      async deleteAccount(confirmationEmail: string) {
+        const supabase = getSupabaseBrowserClient();
+
+        if (!session?.access_token) {
+          throw new Error("Sign in again before deleting this account.");
+        }
+
+        const response = await fetch("/api/account", {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ confirmationEmail }),
+        });
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Could not delete the account.");
+        }
+
+        try {
+          const registration = await navigator.serviceWorker?.getRegistration();
+          const subscription = await registration?.pushManager.getSubscription();
+          await subscription?.unsubscribe();
+        } catch (error) {
+          console.error("Could not remove the local push subscription:", error);
+        }
+
+        window.localStorage.removeItem("tracked-products");
+        await supabase.auth.signOut({ scope: "local" });
+        claimedUserId.current = null;
+        setSession(null);
         setOwnershipVersion((version) => version + 1);
       },
     }),
