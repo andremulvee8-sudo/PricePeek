@@ -77,6 +77,11 @@ indexes, and row-level security policies. Existing rows are preserved with a
 null account owner and remain available to their original browser until that
 browser signs in and claims them.
 
+`supabase/migrations/20260903000000_cron_execution_lock.sql` adds a short,
+self-expiring database lease for the scheduled checker. It creates no foreign
+keys to application data and does not rewrite tracked products or price
+history.
+
 Before applying it to an existing database, take a backup and test it against a
 staging copy. Existing rows that violate the new positive-price or nonnegative
 counter constraints must be corrected first. Existing duplicate `device_id`
@@ -121,7 +126,7 @@ Tests cover Amazon URL identity parsing, marketplace currencies, tracking
 deduplication, historical-price deal wording, scheduled-product eligibility,
 failure backoff, and duplicate-notification suppression.
 They also cover account/device ownership selection and claim deduplication
-decisions.
+decisions, sign-in error wording, and expired push-subscription detection.
 
 Tracked products use `(device_id, marketplace, asin)` as their canonical unique
 identity. Saving a product does not require notification permission. Target
@@ -138,8 +143,10 @@ alert delivery can fan out to each subscribed account device.
 
 Configure the Supabase Auth Site URL to the production origin and allow the
 local development origins under Authentication → URL Configuration. Email
-magic links are rate-limited by Supabase. Never expose `SUPABASE_SECRET_KEY` to
-the browser; only the publishable key belongs in a `NEXT_PUBLIC_` variable.
+magic links are rate-limited by the configured email provider. The interface
+asks users to wait before retrying after a rate-limit response. Never expose
+`SUPABASE_SECRET_KEY` to the browser; only the publishable key belongs in a
+`NEXT_PUBLIC_` variable.
 
 Signing out detaches the current browser's push subscription from the account.
 Claimed products remain account-owned and require signing in again; this avoids
@@ -200,6 +207,12 @@ sends `Authorization: Bearer <CRON_SECRET>`. The route selects active products
 whose `next_check_at` is due, oldest first. Successful checks are scheduled for
 the following day. Failed lookups record their error and use exponential backoff
 so one failing product cannot repeatedly occupy the front of the queue.
+
+The checker first acquires a self-expiring five-minute database lease, so an
+overlapping invocation exits successfully without processing the same batch.
+Expired push endpoints are removed individually; a stale endpoint cannot stop
+delivery to the other subscribed devices. A price alert is marked as sent only
+after at least one device accepts it.
 
 A product remains active after a notification. The notification flag suppresses
 duplicates while its price stays at or below the target and is re-armed after the

@@ -11,6 +11,7 @@ import {
   PRICE_CHECK_BATCH_SIZE,
   shouldSendPriceAlert,
 } from "../../../lib/priceCheckScheduling";
+import { isExpiredPushSubscriptionError } from "../../../lib/pushDelivery";
 
 export const maxDuration = 300;
 
@@ -38,6 +39,28 @@ export async function GET(request: Request) {
   }
 
   webPush.setVapidDetails(subject, publicKey, privateKey);
+
+  const { data: lockAcquired, error: lockError } = await supabaseAdmin.rpc(
+    "acquire_price_check_lock",
+    { lock_duration_seconds: maxDuration }
+  );
+
+  if (lockError) {
+    console.error("Could not acquire the price-check lock:", lockError.message);
+    return NextResponse.json(
+      { error: "Could not start the scheduled price check" },
+      { status: 500 }
+    );
+  }
+
+  if (!lockAcquired) {
+    return NextResponse.json({
+      success: true,
+      checked: 0,
+      skipped: "already-running",
+      results: [],
+    });
+  }
 
   const checkStartedAt = new Date();
 
@@ -173,13 +196,26 @@ export async function GET(request: Request) {
           parseAmazonProductUrl(product.amazon_url)?.currency;
         let subscriptionQuery = supabaseAdmin
           .from("push_subscriptions")
-          .select("subscription");
+          .select("device_id, owner_user_id, subscription");
 
         subscriptionQuery = product.owner_user_id
           ? subscriptionQuery.eq("owner_user_id", product.owner_user_id)
           : subscriptionQuery.eq("device_id", product.device_id);
 
-        const { data: pushRecords } = await subscriptionQuery;
+        const { data: pushRecords, error: subscriptionError } =
+          await subscriptionQuery;
+
+        if (subscriptionError) {
+          console.error("Could not load push subscriptions:", {
+            id: product.id,
+            message: subscriptionError.message,
+          });
+          results.push({
+            id: product.id,
+            status: "subscription-lookup-failed",
+          });
+          continue;
+        }
 
         if (!pushRecords || pushRecords.length === 0) {
           results.push({
@@ -199,7 +235,7 @@ export async function GET(request: Request) {
           url: product.amazon_url,
         });
 
-        await Promise.all(
+        const deliveryResults = await Promise.allSettled(
           pushRecords.map((pushRecord) =>
             webPush.sendNotification(
               pushRecord.subscription,
@@ -208,17 +244,79 @@ export async function GET(request: Request) {
           )
         );
 
-        await supabaseAdmin
+        let deliveredCount = 0;
+        let transientFailureCount = 0;
+
+        for (const [index, deliveryResult] of deliveryResults.entries()) {
+          if (deliveryResult.status === "fulfilled") {
+            deliveredCount += 1;
+            continue;
+          }
+
+          const pushRecord = pushRecords[index];
+          if (isExpiredPushSubscriptionError(deliveryResult.reason)) {
+            let deleteQuery = supabaseAdmin
+              .from("push_subscriptions")
+              .delete()
+              .eq("device_id", pushRecord.device_id);
+
+            deleteQuery = pushRecord.owner_user_id
+              ? deleteQuery.eq("owner_user_id", pushRecord.owner_user_id)
+              : deleteQuery.is("owner_user_id", null);
+
+            const { error: deleteError } = await deleteQuery;
+
+            if (deleteError) {
+              console.error("Could not remove an expired push subscription:", {
+                id: product.id,
+                message: deleteError.message,
+              });
+            }
+            continue;
+          }
+
+          transientFailureCount += 1;
+          console.error("Push notification delivery failed:", {
+            id: product.id,
+          });
+        }
+
+        if (deliveredCount === 0) {
+          results.push({
+            id: product.id,
+            status:
+              transientFailureCount > 0
+                ? "notification-delivery-failed"
+                : "subscription-not-found",
+          });
+          continue;
+        }
+
+        const { error: notificationUpdateError } = await supabaseAdmin
           .from("tracked_products")
           .update({
             notification_sent: true,
           })
           .eq("id", product.id);
 
+        if (notificationUpdateError) {
+          console.error("Could not record notification delivery:", {
+            id: product.id,
+            message: notificationUpdateError.message,
+          });
+          results.push({
+            id: product.id,
+            status: "notification-state-update-failed",
+            deliveredCount,
+          });
+          continue;
+        }
+
         results.push({
           id: product.id,
           status: "notification-sent",
           currentPrice,
+          deliveredCount,
         });
       } else {
         results.push({

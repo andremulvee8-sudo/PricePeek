@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { getAuthErrorMessage } from "../lib/authMessages";
 import { useAuth } from "./AuthProvider";
 
 export default function AuthControls() {
@@ -18,8 +19,8 @@ export default function AuthControls() {
     try {
       await sendMagicLink(email.trim());
       setStatus("Check your email for a secure sign-in link.");
-    } catch {
-      setStatus("Could not send the sign-in link. Please try again.");
+    } catch (error) {
+      setStatus(getAuthErrorMessage(error));
     } finally {
       setIsSubmitting(false);
     }
