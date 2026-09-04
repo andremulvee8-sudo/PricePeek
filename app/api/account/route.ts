@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAccountDeletionConfirmed } from "../../lib/accountDeletion";
+import { readJsonObject } from "../../lib/apiRequest";
 import { getBearerToken } from "../../lib/ownership";
 import { supabaseAdmin } from "../../lib/supabaseAdmin";
 
@@ -16,16 +17,16 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  let confirmationEmail: unknown;
+  const body = await readJsonObject(request);
 
-  try {
-    ({ confirmationEmail } = await request.json());
-  } catch {
+  if (!body.ok) {
     return NextResponse.json(
       { error: "Enter the signed-in email address to confirm deletion." },
-      { status: 400 }
+      { status: body.status }
     );
   }
+
+  const { confirmationEmail } = body.data;
 
   if (!isAccountDeletionConfirmed(data.user.email, confirmationEmail)) {
     return NextResponse.json(

@@ -34,6 +34,7 @@ jobs:
       VAPID_PRIVATE_KEY: ci-placeholder-not-a-secret
       VAPID_SUBJECT: mailto:ci@example.com
       CRON_SECRET: ci-placeholder-not-a-secret
+      RATE_LIMIT_SECRET: ci-placeholder-not-a-secret-that-is-at-least-32-characters
 
     steps:
       - name: Check out repository

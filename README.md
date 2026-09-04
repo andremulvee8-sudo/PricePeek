@@ -13,6 +13,7 @@ for scheduled checks.
 - A Rainforest API key
 - A Web Push VAPID key pair
 - A random cron secret
+- A separate random rate-limit secret of at least 32 characters
 
 ## Local setup
 
@@ -59,6 +60,7 @@ npm.cmd run dev -- --experimental-https
 | `VAPID_PRIVATE_KEY` | Server-only Web Push private key |
 | `VAPID_SUBJECT` | VAPID contact, normally a `mailto:` URL |
 | `CRON_SECRET` | Bearer token protecting the cron route |
+| `RATE_LIMIT_SECRET` | Server-only key used to digest rate-limit identifiers; use at least 32 random characters |
 
 ## Database migration
 
@@ -86,6 +88,13 @@ history.
 run ledger for the public service-status view. It stores timestamps, states,
 and aggregate counts only. It never stores product IDs, URLs, prices, account
 identifiers, device identifiers, or push subscriptions.
+
+`supabase/migrations/20260904000000_atomic_api_rate_limits.sql` replaces the
+multi-query product-search counter with one atomic database operation. It
+creates or replaces only the rate-limit function, grants it solely to the
+server role, and does not rewrite or delete existing rows. The application
+stores a keyed digest instead of a readable client address for all new
+rate-limit entries after this release.
 
 Before applying it to an existing database, take a backup and test it against a
 staging copy. Existing rows that violate the new positive-price or nonnegative
@@ -135,6 +144,9 @@ decisions, sign-in error wording, and expired push-subscription detection.
 Launch-readiness tests also cover account-deletion confirmation, privacy-safe
 cron summaries, and health classification for successful, partial, stale, and
 stalled runs.
+API-hardening tests cover JSON content types, malformed and oversized bodies,
+keyed rate-limit identifiers, proxy address selection, and `Retry-After`
+calculation.
 
 ### GitHub quality automation
 
@@ -287,6 +299,20 @@ fields so operators can diagnose them through protected database access.
 The same daily job removes API rate-limit identifiers whose windows ended more
 than seven days earlier.
 
+## API safety
+
+All `/api/` responses are marked private and `no-store`. Mutation routes accept
+small JSON objects only and reject unsupported content types, malformed JSON,
+and oversized bodies before performing application work. Public product
+lookups use an atomic hourly allowance, return standard limit/reset headers,
+and time out stalled provider requests. Provider and database error details are
+logged server-side in limited form and are not returned to visitors.
+
+`RATE_LIMIT_SECRET` is independent from the Supabase, Rainforest, VAPID, and
+cron credentials. Generate it locally, store it only in protected environment
+configuration, and never prefix it with `NEXT_PUBLIC_`. Rotating it is safe but
+starts a new set of temporary limiter identifiers.
+
 A product remains active after a notification. The notification flag suppresses
 duplicates while its price stays at or below the target and is re-armed after the
 price rises above the target.
@@ -295,7 +321,9 @@ price rises above the target.
 
 1. Apply every reviewed migration in filename order to staging. Deploy code
    that reads `price_check_runs` only after
-   `20260903010000_cron_run_health.sql` has been applied.
+   `20260903010000_cron_run_health.sql` has been applied. Apply
+   `20260904000000_atomic_api_rate_limits.sql` before deploying code that calls
+   `consume_api_rate_limit`.
 2. Configure every environment variable in the staging deployment.
 3. Run the quality checks above.
 4. Deploy to staging and verify product lookup, tracking, deletion, price
@@ -305,7 +333,8 @@ price rises above the target.
 6. Only after staging succeeds, apply the migration to production, configure
    production secrets, and deploy.
 
-Never expose `SUPABASE_SECRET_KEY`, `VAPID_PRIVATE_KEY`, `RAINFOREST_API_KEY`, or
-`CRON_SECRET` through client components or `NEXT_PUBLIC_` variables. The
+Never expose `SUPABASE_SECRET_KEY`, `VAPID_PRIVATE_KEY`, `RAINFOREST_API_KEY`,
+`CRON_SECRET`, or `RATE_LIMIT_SECRET` through client components or
+`NEXT_PUBLIC_` variables. The
 Supabase project URL, publishable key, and VAPID public key are intentionally
 browser-safe.

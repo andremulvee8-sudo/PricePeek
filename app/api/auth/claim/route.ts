@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
+import { readJsonObject } from "../../../lib/apiRequest";
 import { resolveRequestOwner } from "../../../lib/requestOwner";
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
 
 export async function POST(request: Request) {
   try {
-    const { deviceId } = await request.json();
+    const body = await readJsonObject(request);
+
+    if (!body.ok) {
+      return NextResponse.json({ error: body.error }, { status: body.status });
+    }
+
+    const { deviceId } = body.data;
     const owner = await resolveRequestOwner(request, deviceId);
 
     if (!owner || owner.kind !== "user" || typeof deviceId !== "string") {
