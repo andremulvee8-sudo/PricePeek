@@ -46,8 +46,9 @@ export async function GET(request: Request) {
       .limit(30);
 
     if (error) {
+      console.error("Price-history load failed:", { code: error.code });
       return NextResponse.json(
-        { error: error.message },
+        { error: "Could not load price history." },
         { status: 500 }
       );
     }

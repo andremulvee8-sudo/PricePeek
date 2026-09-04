@@ -29,8 +29,11 @@ export default function PrivacyPage() {
               product identifiers, target prices, recorded price history, a
               randomly generated browser device identifier, and a browser push
               endpoint with its subscription keys when you enable notifications.
-              Basic request identifiers are retained temporarily to prevent API
-              abuse and are removed after seven days during scheduled cleanup.
+              New abuse-prevention entries retain a keyed, non-readable digest
+              of the request address rather than the address itself. These
+              temporary entries, including older-format entries from before
+              this safeguard, are removed after seven days during scheduled
+              cleanup.
             </p>
           </section>
 
@@ -84,7 +87,7 @@ export default function PrivacyPage() {
           </section>
         </div>
 
-        <p className="mt-10 text-sm text-slate-500">Last updated: September 3, 2026</p>
+        <p className="mt-10 text-sm text-slate-500">Last updated: September 4, 2026</p>
         <Link
           href="/"
           className="mt-8 inline-flex rounded-xl border border-slate-700 px-5 py-3 font-semibold transition hover:border-green-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-400"

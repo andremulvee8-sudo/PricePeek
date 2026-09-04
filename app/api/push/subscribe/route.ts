@@ -1,18 +1,37 @@
 import { NextResponse } from "next/server";
+import { readJsonObject } from "../../../lib/apiRequest";
 import { resolveRequestOwner } from "../../../lib/requestOwner";
 import { supabaseAdmin } from "../../../lib/supabaseAdmin";
 
 export async function POST(request: Request) {
   try {
-    const { deviceId, subscription } = await request.json();
+    const body = await readJsonObject(request);
+
+    if (!body.ok) {
+      return NextResponse.json({ error: body.error }, { status: body.status });
+    }
+
+    const { deviceId } = body.data;
+    const subscription =
+      body.data.subscription &&
+      typeof body.data.subscription === "object" &&
+      !Array.isArray(body.data.subscription)
+        ? (body.data.subscription as Record<string, unknown>)
+        : null;
+    const keys =
+      subscription?.keys &&
+      typeof subscription.keys === "object" &&
+      !Array.isArray(subscription.keys)
+        ? (subscription.keys as Record<string, unknown>)
+        : null;
     const owner = await resolveRequestOwner(request, deviceId);
 
     if (
       !owner ||
       typeof deviceId !== "string" ||
-      !subscription?.endpoint ||
-      !subscription?.keys?.p256dh ||
-      !subscription?.keys?.auth
+      typeof subscription?.endpoint !== "string" ||
+      typeof keys?.p256dh !== "string" ||
+      typeof keys?.auth !== "string"
     ) {
       return NextResponse.json(
         { error: "Invalid push subscription" },
@@ -56,7 +75,13 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const { deviceId, action } = await request.json();
+    const body = await readJsonObject(request);
+
+    if (!body.ok) {
+      return NextResponse.json({ error: body.error }, { status: body.status });
+    }
+
+    const { deviceId, action } = body.data;
     const owner = await resolveRequestOwner(request, deviceId);
 
     if (!owner || typeof deviceId !== "string" || deviceId.trim().length === 0) {

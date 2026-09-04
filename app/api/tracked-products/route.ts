@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { parseAmazonProductUrl } from "../../lib/amazonProduct";
+import { readJsonObject } from "../../lib/apiRequest";
 import { calculateDealStatus } from "../../lib/productInsights";
 import { getOwnerColumn } from "../../lib/ownership";
 import { resolveRequestOwner } from "../../lib/requestOwner";
@@ -7,7 +8,19 @@ import { supabaseAdmin } from "../../lib/supabaseAdmin";
 
 export async function POST(request: Request) {
   try {
-    const { deviceId, product, targetPrice } = await request.json();
+    const body = await readJsonObject(request);
+
+    if (!body.ok) {
+      return NextResponse.json({ error: body.error }, { status: body.status });
+    }
+
+    const { deviceId, targetPrice } = body.data;
+    const product =
+      body.data.product &&
+      typeof body.data.product === "object" &&
+      !Array.isArray(body.data.product)
+        ? (body.data.product as Record<string, unknown>)
+        : null;
     const owner = await resolveRequestOwner(request, deviceId);
     const parsedProduct =
       typeof product?.url === "string"
@@ -97,7 +110,7 @@ export async function POST(request: Request) {
       });
 
       return NextResponse.json(
-        { error: error.message, code: error.code },
+        { error: "Could not save this tracked product." },
         { status: 500 }
       );
     }
@@ -137,8 +150,13 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const { deviceId, id, targetPrice, isActive, rearmAlert } =
-      await request.json();
+    const body = await readJsonObject(request);
+
+    if (!body.ok) {
+      return NextResponse.json({ error: body.error }, { status: body.status });
+    }
+
+    const { deviceId, id, targetPrice, isActive, rearmAlert } = body.data;
     const owner = await resolveRequestOwner(request, deviceId);
 
     if (
@@ -219,8 +237,17 @@ export async function PATCH(request: Request) {
       .single();
 
     if (error || !data) {
+      if (error && error.code !== "PGRST116") {
+        console.error("Tracked product update failed:", { code: error.code });
+      }
+
       return NextResponse.json(
-        { error: error?.message || "Tracked product not found" },
+        {
+          error:
+            error?.code === "PGRST116"
+              ? "Tracked product not found"
+              : "Could not update this tracked product.",
+        },
         { status: error?.code === "PGRST116" ? 404 : 500 }
       );
     }
@@ -245,7 +272,13 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const { deviceId, id } = await request.json();
+    const body = await readJsonObject(request);
+
+    if (!body.ok) {
+      return NextResponse.json({ error: body.error }, { status: body.status });
+    }
+
+    const { deviceId, id } = body.data;
     const owner = await resolveRequestOwner(request, deviceId);
 
     if (!owner || typeof deviceId !== "string" || typeof id !== "string") {
@@ -269,8 +302,9 @@ export async function DELETE(request: Request) {
     const { error } = await deleteQuery;
 
     if (error) {
+      console.error("Tracked product deletion failed:", { code: error.code });
       return NextResponse.json(
-        { error: error.message },
+        { error: "Could not remove this tracked product." },
         { status: 500 }
       );
     }
@@ -314,8 +348,9 @@ export async function GET(request: Request) {
     });
 
     if (error) {
+      console.error("Tracked product load failed:", { code: error.code });
       return NextResponse.json(
-        { error: error.message },
+        { error: "Could not load tracked products." },
         { status: 500 }
       );
     }
@@ -330,8 +365,11 @@ export async function GET(request: Request) {
         .in("tracked_product_id", productIds);
 
       if (historyError) {
+        console.error("Tracked product history load failed:", {
+          code: historyError.code,
+        });
         return NextResponse.json(
-          { error: historyError.message },
+          { error: "Could not load tracked-product history." },
           { status: 500 }
         );
       }
