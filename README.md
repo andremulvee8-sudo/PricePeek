@@ -136,6 +136,36 @@ Launch-readiness tests also cover account-deletion confirmation, privacy-safe
 cron summaries, and health classification for successful, partial, stale, and
 stalled runs.
 
+### GitHub quality automation
+
+`.github/workflows/quality.yml` runs the same lint, test, TypeScript, and
+production-build checks for every pull request, every push to `main`, and a
+manual workflow dispatch. The workflow has read-only repository permission,
+does not preserve Git credentials after checkout, has no deployment step, and
+cannot apply Supabase migrations.
+
+The build uses clearly marked compile-time placeholders rather than repository
+or production secrets. Route handlers are not invoked during the build, so the
+workflow does not contact Supabase, Rainforest, Web Push, or the deployed app.
+Never replace these placeholders with production values. If a future test
+genuinely needs a service, use an isolated test project and a reviewed GitHub
+environment rather than production credentials.
+
+The interface uses a system font stack, so compilation does not download fonts
+or depend on Google Fonts availability. This keeps local and CI builds
+deterministic while preserving the existing rendered typography.
+
+Dependabot checks npm packages and GitHub Actions weekly. It opens reviewable
+pull requests only; it cannot merge, deploy, or change production data. Review
+release notes and require the quality workflow to pass before merging an
+update.
+
+After the workflow has completed successfully at least once, protect `main` in
+the GitHub repository settings with a branch ruleset that requires pull
+requests and the `Lint, test, typecheck, and build` status check. Block force
+pushes and branch deletion. Until that ruleset is enabled, direct pushes to
+`main` can still trigger Vercel before GitHub finishes its independent checks.
+
 Tracked products use `(device_id, marketplace, asin)` as their canonical unique
 identity. Saving a product does not require notification permission. Target
 prices, active tracking state, and alert re-arming can be managed independently
