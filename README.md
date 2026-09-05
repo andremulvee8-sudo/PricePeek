@@ -170,7 +170,10 @@ deterministic while preserving the existing rendered typography.
 Dependabot checks npm packages and GitHub Actions weekly. It opens reviewable
 pull requests only; it cannot merge, deploy, or change production data. Review
 release notes and require the quality workflow to pass before merging an
-update.
+update. Compatible minor and patch updates for Next.js, its matching ESLint
+configuration, React, React DOM, and their React types are grouped so framework
+versions stay aligned. Major framework, ESLint, and Node-type updates require a
+planned manual upgrade rather than an automatic pull request.
 
 After the workflow has completed successfully at least once, protect `main` in
 the GitHub repository settings with a branch ruleset that requires pull
