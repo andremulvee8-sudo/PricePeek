@@ -14,6 +14,7 @@ for scheduled checks.
 - A Web Push VAPID key pair
 - A random cron secret
 - A separate random rate-limit secret of at least 32 characters
+- A public support email address before inviting beta testers
 
 ## Local setup
 
@@ -61,6 +62,7 @@ npm.cmd run dev -- --experimental-https
 | `VAPID_SUBJECT` | VAPID contact, normally a `mailto:` URL |
 | `CRON_SECRET` | Bearer token protecting the cron route |
 | `RATE_LIMIT_SECRET` | Server-only key used to digest rate-limit identifiers; use at least 32 random characters |
+| `SUPPORT_EMAIL` | Public support/privacy contact rendered on legal pages; not a secret |
 
 ## Database migration
 
@@ -95,6 +97,13 @@ creates or replaces only the rate-limit function, grants it solely to the
 server role, and does not rewrite or delete existing rows. The application
 stores a keyed digest instead of a readable client address for all new
 rate-limit entries after this release.
+
+`supabase/migrations/20260907000000_beta_readiness_metrics.sql` adds only
+nonnegative aggregate counters to `price_check_runs`. The counters distinguish
+Amazon lookup failures, push attempts, accepted deliveries, transient push
+failures, and expired subscriptions. They contain no product, account, device,
+URL, price, endpoint, key, or provider-response data. Existing run rows are
+preserved and receive zero-valued counters.
 
 Before applying it to an existing database, take a backup and test it against a
 staging copy. Existing rows that violate the new positive-price or nonnegative
@@ -147,6 +156,8 @@ stalled runs.
 API-hardening tests cover JSON content types, malformed and oversized bodies,
 keyed rate-limit identifiers, proxy address selection, and `Retry-After`
 calculation.
+Beta-readiness tests cover unavailable-price guidance, sign-in-link cooldowns,
+and privacy-safe lookup/push aggregate summaries.
 
 ### GitHub quality automation
 
@@ -220,6 +231,33 @@ The public `/privacy` page documents the data PricePeek stores, its service
 providers, user controls, and price-accuracy limitations. Before a broader
 public launch, review the notice for the jurisdictions where the service will
 be offered and add an appropriate support contact when one is available.
+The public `/terms` page explains beta-service limitations, acceptable use,
+account controls, and the need to confirm every price on Amazon. Set
+`SUPPORT_EMAIL` to publish the same contact on both legal pages. These templates
+are an operational baseline, not jurisdiction-specific legal advice; obtain a
+qualified review before charging users or launching broadly.
+
+### Production email delivery
+
+Supabase's shared development email sender is intentionally rate-limited and
+is not suitable for a public beta. Before inviting testers, configure a custom
+SMTP provider in Supabase Authentication settings:
+
+1. Create a dedicated transactional-email sender and verify its domain with the
+   provider.
+2. Enter the SMTP host, port, username, password, sender name, and sender email
+   directly in the Supabase dashboard. Never paste these values into source,
+   issues, pull requests, or chat.
+3. Keep the production Site URL and permitted redirect URLs current under
+   Authentication URL Configuration.
+4. Send one magic link to an internal test account, follow it on desktop and
+   mobile, and inspect only aggregate delivery/bounce status in the provider.
+5. Set conservative provider and Supabase send limits, then increase them only
+   after observing legitimate beta traffic.
+
+The sign-in form applies a one-minute resend cooldown after a successful
+request. This reduces accidental repeat emails but does not replace Supabase or
+provider-side rate limits.
 
 ## Progressive Web App
 
@@ -295,12 +333,50 @@ provides the same privacy-safe state for an uptime monitor. The health response
 uses `Cache-Control: no-store`, returns HTTP 503 for missing, stale, partial, or
 failed runs, and exposes no customer or product records. The first status will
 remain degraded until a scheduled check runs after this migration is applied.
+After the Phase 9 migration, it also stores aggregate lookup and push-delivery
+counters. `/status` displays only these counts and timestamps; raw provider
+errors and customer-level records remain restricted to protected operations.
 
 Cron responses are aggregate-only: checked, updated, notification, and failure
 counts. Per-product lookup errors remain in the existing scheduling/error
 fields so operators can diagnose them through protected database access.
 The same daily job removes API rate-limit identifiers whose windows ended more
 than seven days earlier.
+
+### Uptime monitoring
+
+Point an HTTPS uptime monitor at `GET /api/health` after the latest migration is
+applied. Use a daily check shortly after the scheduled 09:00 UTC cron run and
+alert only when the endpoint returns `503` or cannot be reached. The endpoint
+is public, read-only, aggregate-only, and marked `Cache-Control: no-store`.
+Never place `CRON_SECRET` in an uptime monitor or use the protected cron route
+as a health check.
+
+For beta operations, review these signals without opening customer records:
+
+- latest cron state and completion time;
+- checked, updated, and lookup-failure counts;
+- push attempts, accepted deliveries, transient failures, and expired
+  subscriptions;
+- Vercel function error rate and invocation duration;
+- transactional-email aggregate delivery and bounce rates.
+
+### Beta launch checklist
+
+Before inviting external testers:
+
+1. Apply the Phase 9 migration to staging, deploy the branch there, and run one
+   protected scheduled check.
+2. Confirm `/status` and `/api/health` show only aggregate counters.
+3. Configure and test custom SMTP without sharing credentials.
+4. Set `SUPPORT_EMAIL`, review `/privacy` and `/terms`, and obtain any legal
+   review appropriate to the launch jurisdictions.
+5. Test a listing with a current price and one without a buy-box price. The
+   latter must remain trackable and clearly explain that PricePeek will retry.
+6. Test sign-in, cross-device sync, account deletion, installation, offline
+   behavior, and push delivery on the target desktop and mobile browsers.
+7. Invite a small tester group, monitor aggregate health for several scheduled
+   runs, and expand only after lookup and notification failures are understood.
 
 ## API safety
 
@@ -326,7 +402,9 @@ price rises above the target.
    that reads `price_check_runs` only after
    `20260903010000_cron_run_health.sql` has been applied. Apply
    `20260904000000_atomic_api_rate_limits.sql` before deploying code that calls
-   `consume_api_rate_limit`.
+   `consume_api_rate_limit`. Apply
+   `20260907000000_beta_readiness_metrics.sql` before deploying code that writes
+   or reads the new aggregate health counters.
 2. Configure every environment variable in the staging deployment.
 3. Run the quality checks above.
 4. Deploy to staging and verify product lookup, tracking, deletion, price

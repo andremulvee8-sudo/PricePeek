@@ -15,4 +15,7 @@ export type ProductData = {
   databaseId?: string;
   isActive?: boolean;
   notificationSent?: boolean;
+  lastCheckedAt?: string | null;
+  nextCheckAt?: string | null;
+  consecutiveFailures?: number;
 };

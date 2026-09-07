@@ -65,6 +65,9 @@ export default function Home() {
           <a className="hover:text-green-400" href="/privacy">
             Privacy
           </a>
+          <a className="hover:text-green-400" href="/terms">
+            Terms
+          </a>
           <a className="hover:text-green-400" href="/status">
             Service status
           </a>

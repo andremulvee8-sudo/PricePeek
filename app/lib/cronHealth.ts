@@ -4,6 +4,10 @@ export type CronRunStatus = "running" | "succeeded" | "partial" | "failed";
 
 type CronResult = {
   status: string;
+  notificationAttemptCount?: number;
+  notificationDeliveredCount?: number;
+  pushFailureCount?: number;
+  expiredSubscriptionCount?: number;
 };
 
 type StoredCronRun = {
@@ -37,9 +41,28 @@ export function summarizeCronResults(results: CronResult[]) {
   const notificationCount = results.filter(
     (result) => result.status === "notification-sent"
   ).length;
-  const failureCount = results.filter((result) =>
+  const productFailureCount = results.filter((result) =>
     FAILURE_STATUSES.has(result.status)
   ).length;
+  const lookupFailureCount = results.filter(
+    (result) =>
+      result.status === "price-check-failed" ||
+      result.status === "unexpected-error"
+  ).length;
+  const notificationAttemptCount = sumResultCount(
+    results,
+    "notificationAttemptCount"
+  );
+  const notificationDeliveredCount = sumResultCount(
+    results,
+    "notificationDeliveredCount"
+  );
+  const pushFailureCount = sumResultCount(results, "pushFailureCount");
+  const expiredSubscriptionCount = sumResultCount(
+    results,
+    "expiredSubscriptionCount"
+  );
+  const failureCount = productFailureCount + pushFailureCount;
 
   const status: Exclude<CronRunStatus, "running"> =
     failureCount === 0
@@ -54,7 +77,29 @@ export function summarizeCronResults(results: CronResult[]) {
     updatedCount,
     notificationCount,
     failureCount,
+    lookupFailureCount,
+    notificationAttemptCount,
+    notificationDeliveredCount,
+    pushFailureCount,
+    expiredSubscriptionCount,
   };
+}
+
+function sumResultCount(
+  results: CronResult[],
+  key:
+    | "notificationAttemptCount"
+    | "notificationDeliveredCount"
+    | "pushFailureCount"
+    | "expiredSubscriptionCount"
+) {
+  return results.reduce((total, result) => {
+    const value = result[key];
+    return total +
+      (typeof value === "number" && Number.isFinite(value) && value > 0
+        ? Math.floor(value)
+        : 0);
+  }, 0);
 }
 
 export function evaluateCronHealth(

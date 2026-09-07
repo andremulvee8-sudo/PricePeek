@@ -15,6 +15,11 @@ test("summarizes successful, partial, and failed cron runs without record data",
       updatedCount: 3,
       notificationCount: 1,
       failureCount: 0,
+      lookupFailureCount: 0,
+      notificationAttemptCount: 0,
+      notificationDeliveredCount: 0,
+      pushFailureCount: 0,
+      expiredSubscriptionCount: 0,
     }
   );
 
@@ -28,6 +33,33 @@ test("summarizes successful, partial, and failed cron runs without record data",
   assert.equal(
     summarizeCronResults([{ status: "price-check-failed" }]).status,
     "failed"
+  );
+});
+
+test("summarizes privacy-safe lookup and push delivery counters", () => {
+  assert.deepEqual(
+    summarizeCronResults([
+      { status: "price-check-failed" },
+      {
+        status: "notification-sent",
+        notificationAttemptCount: 3,
+        notificationDeliveredCount: 1,
+        pushFailureCount: 1,
+        expiredSubscriptionCount: 1,
+      },
+    ]),
+    {
+      status: "partial",
+      checkedCount: 2,
+      updatedCount: 1,
+      notificationCount: 1,
+      failureCount: 2,
+      lookupFailureCount: 1,
+      notificationAttemptCount: 3,
+      notificationDeliveredCount: 1,
+      pushFailureCount: 1,
+      expiredSubscriptionCount: 1,
+    }
   );
 });
 

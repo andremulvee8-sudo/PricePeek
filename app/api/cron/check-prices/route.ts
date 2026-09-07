@@ -293,6 +293,7 @@ export async function GET(request: Request) {
 
         let deliveredCount = 0;
         let transientFailureCount = 0;
+        let expiredSubscriptionCount = 0;
 
         for (const [index, deliveryResult] of deliveryResults.entries()) {
           if (deliveryResult.status === "fulfilled") {
@@ -302,6 +303,7 @@ export async function GET(request: Request) {
 
           const pushRecord = pushRecords[index];
           if (isExpiredPushSubscriptionError(deliveryResult.reason)) {
+            expiredSubscriptionCount += 1;
             let deleteQuery = supabaseAdmin
               .from("push_subscriptions")
               .delete()
@@ -335,6 +337,10 @@ export async function GET(request: Request) {
               transientFailureCount > 0
                 ? "notification-delivery-failed"
                 : "subscription-not-found",
+            notificationAttemptCount: pushRecords.length,
+            notificationDeliveredCount: 0,
+            pushFailureCount: transientFailureCount,
+            expiredSubscriptionCount,
           });
           continue;
         }
@@ -355,6 +361,10 @@ export async function GET(request: Request) {
             id: product.id,
             status: "notification-state-update-failed",
             deliveredCount,
+            notificationAttemptCount: pushRecords.length,
+            notificationDeliveredCount: deliveredCount,
+            pushFailureCount: transientFailureCount,
+            expiredSubscriptionCount,
           });
           continue;
         }
@@ -364,6 +374,10 @@ export async function GET(request: Request) {
           status: "notification-sent",
           currentPrice,
           deliveredCount,
+          notificationAttemptCount: pushRecords.length,
+          notificationDeliveredCount: deliveredCount,
+          pushFailureCount: transientFailureCount,
+          expiredSubscriptionCount,
         });
       } else {
         results.push({
@@ -397,6 +411,11 @@ export async function GET(request: Request) {
       updated_count: summary.updatedCount,
       notification_count: summary.notificationCount,
       failure_count: summary.failureCount,
+      lookup_failure_count: summary.lookupFailureCount,
+      push_attempt_count: summary.notificationAttemptCount,
+      push_delivery_count: summary.notificationDeliveredCount,
+      push_failure_count: summary.pushFailureCount,
+      expired_subscription_count: summary.expiredSubscriptionCount,
     })
     .eq("id", run.id);
 
