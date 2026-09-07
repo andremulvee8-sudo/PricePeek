@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { formatCurrency } from "../lib/amazonProduct";
+import { getPriceAvailability } from "../lib/priceAvailability";
 import type { ProductData } from "../lib/productTypes";
 
 type ProductCardProps = {
@@ -35,6 +36,10 @@ export default function ProductCard({
       : product.dealStatus.kind === "above-low"
         ? "text-amber-300"
         : "text-slate-400";
+  const availability = getPriceAvailability({
+    currentPrice: product.currentPrice,
+    isTracked,
+  });
 
   return (
     <div className="mt-10 w-full max-w-3xl rounded-3xl border border-slate-800 bg-slate-900 p-8 shadow-xl">
@@ -80,6 +85,20 @@ export default function ProductCard({
               </p>
             </div>
           </div>
+
+          {availability && (
+            <div
+              role="note"
+              className="mt-5 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-left"
+            >
+              <p className="font-semibold text-amber-200">
+                {availability.label}
+              </p>
+              <p className="mt-1 text-sm text-slate-300">
+                {availability.detail}
+              </p>
+            </div>
+          )}
 
           <div className="mt-6">
             <label

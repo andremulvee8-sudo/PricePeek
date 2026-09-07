@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { getRemainingMagicLinkCooldownSeconds } from "../lib/authCooldown";
 import { getAuthErrorMessage } from "../lib/authMessages";
 import { useAuth } from "./AuthProvider";
 
@@ -13,14 +14,34 @@ export default function AuthControls() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDeletion, setShowDeletion] = useState(false);
   const [confirmationEmail, setConfirmationEmail] = useState("");
+  const [magicLinkSentAt, setMagicLinkSentAt] = useState<number | null>(null);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
+
+  useEffect(() => {
+    if (magicLinkSentAt == null) return;
+
+    const updateCooldown = () => {
+      const remaining = getRemainingMagicLinkCooldownSeconds(magicLinkSentAt);
+      setCooldownSeconds(remaining);
+
+      if (remaining === 0) window.clearInterval(timer);
+    };
+
+    const timer = window.setInterval(updateCooldown, 1_000);
+    return () => window.clearInterval(timer);
+  }, [magicLinkSentAt]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isSubmitting || cooldownSeconds > 0) return;
+
     setIsSubmitting(true);
     setStatus("");
 
     try {
       await sendMagicLink(email.trim());
+      setMagicLinkSentAt(Date.now());
+      setCooldownSeconds(60);
       setStatus("Check your email for a secure sign-in link.");
     } catch (error) {
       setStatus(getAuthErrorMessage(error));
@@ -110,6 +131,12 @@ export default function AuthControls() {
                 className="rounded-lg border border-slate-700 px-3 py-2 text-sm transition hover:border-green-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-400"
               >
                 Privacy
+              </Link>
+              <Link
+                href="/terms"
+                className="rounded-lg border border-slate-700 px-3 py-2 text-sm transition hover:border-green-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-400"
+              >
+                Terms
               </Link>
               <button
                 type="button"
@@ -233,10 +260,14 @@ export default function AuthControls() {
           />
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || cooldownSeconds > 0}
             className="mt-3 w-full rounded-lg bg-green-500 px-3 py-2 font-semibold text-slate-950 transition hover:bg-green-400 disabled:opacity-60"
           >
-            {isSubmitting ? "Sending…" : "Email sign-in link"}
+            {isSubmitting
+              ? "Sending…"
+              : cooldownSeconds > 0
+                ? `Retry in ${cooldownSeconds}s`
+                : "Email sign-in link"}
           </button>
           {status && (
             <p className="mt-3 text-sm text-slate-300" role="status">

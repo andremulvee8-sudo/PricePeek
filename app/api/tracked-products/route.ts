@@ -335,7 +335,7 @@ export async function GET(request: Request) {
     let productsQuery = supabaseAdmin
       .from("tracked_products")
       .select(
-        "id, amazon_url, marketplace, asin, currency, title, image_url, current_price, target_price, is_active, notification_sent"
+        "id, amazon_url, marketplace, asin, currency, title, image_url, current_price, target_price, is_active, notification_sent, last_checked_at, next_check_at, consecutive_failures"
       )
       .eq(ownerColumn.column, ownerColumn.value);
 
@@ -402,6 +402,9 @@ export async function GET(request: Request) {
         targetPrice: Number(item.target_price),
         isActive: item.is_active,
         notificationSent: item.notification_sent,
+        lastCheckedAt: item.last_checked_at,
+        nextCheckAt: item.next_check_at,
+        consecutiveFailures: Number(item.consecutive_failures ?? 0),
         dealStatus,
       };
     });

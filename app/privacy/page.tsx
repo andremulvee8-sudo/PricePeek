@@ -7,6 +7,8 @@ export const metadata: Metadata = {
 };
 
 export default function PrivacyPage() {
+  const supportEmail = process.env.SUPPORT_EMAIL?.trim();
+
   return (
     <main className="min-h-screen bg-slate-950 px-6 py-16 text-white">
       <article className="mx-auto max-w-3xl">
@@ -85,6 +87,28 @@ export default function PrivacyPage() {
               Amazon before purchasing.
             </p>
           </section>
+
+          {supportEmail && (
+            <section aria-labelledby="privacy-contact">
+              <h2
+                id="privacy-contact"
+                className="text-2xl font-semibold text-white"
+              >
+                Privacy contact
+              </h2>
+              <p className="mt-3">
+                For privacy questions or help using the in-app deletion
+                control, email{" "}
+                <a
+                  className="text-green-400 underline-offset-4 hover:underline"
+                  href={`mailto:${supportEmail}`}
+                >
+                  {supportEmail}
+                </a>
+                .
+              </p>
+            </section>
+          )}
         </div>
 
         <p className="mt-10 text-sm text-slate-500">Last updated: September 4, 2026</p>

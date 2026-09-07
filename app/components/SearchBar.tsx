@@ -11,6 +11,7 @@ import {
 } from "../lib/amazonProduct";
 import { getOrCreateDeviceId } from "../lib/deviceId";
 import { calculateDealStatus } from "../lib/productInsights";
+import { getPriceAvailability } from "../lib/priceAvailability";
 import type { ProductData } from "../lib/productTypes";
 import { useAuth } from "./AuthProvider";
 
@@ -49,9 +50,33 @@ function parseStoredProducts(value: string): ProductData[] {
         databaseId: item.databaseId,
         isActive: item.isActive ?? true,
         notificationSent: item.notificationSent ?? false,
+        lastCheckedAt: item.lastCheckedAt ?? null,
+        nextCheckAt: item.nextCheckAt ?? null,
+        consecutiveFailures: item.consecutiveFailures ?? 0,
       },
     ];
   });
+}
+
+function TrackedPriceAvailabilityNotice({ product }: { product: ProductData }) {
+  const availability = getPriceAvailability({
+    currentPrice: product.currentPrice,
+    isTracked: true,
+    consecutiveFailures: product.consecutiveFailures,
+    nextCheckAt: product.nextCheckAt,
+  });
+
+  if (!availability) return null;
+
+  return (
+    <div
+      role="note"
+      className="mt-3 rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-left text-sm"
+    >
+      <p className="font-semibold text-amber-200">{availability.label}</p>
+      <p className="mt-1 text-slate-300">{availability.detail}</p>
+    </div>
+  );
 }
 
 export default function SearchBar() {
@@ -466,6 +491,8 @@ export default function SearchBar() {
                     </p>
                   </div>
                 </div>
+
+                <TrackedPriceAvailabilityNotice product={item} />
 
                 <p
                   className={`mt-3 text-sm ${

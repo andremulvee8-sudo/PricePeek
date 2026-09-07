@@ -57,6 +57,30 @@ export default async function StatusPage() {
               {completedLabel ? `${completedLabel} UTC` : "Not available"}
             </dd>
           </div>
+          {health.latestRun && (
+            <>
+              <div className="mt-4 flex flex-wrap justify-between gap-2">
+                <dt className="text-slate-400">Products checked</dt>
+                <dd className="font-medium">{health.latestRun.checkedCount}</dd>
+              </div>
+              <div className="mt-4 flex flex-wrap justify-between gap-2">
+                <dt className="text-slate-400">Prices updated</dt>
+                <dd className="font-medium">{health.latestRun.updatedCount}</dd>
+              </div>
+              <div className="mt-4 flex flex-wrap justify-between gap-2">
+                <dt className="text-slate-400">Lookup failures</dt>
+                <dd className="font-medium">
+                  {health.latestRun.lookupFailureCount}
+                </dd>
+              </div>
+              <div className="mt-4 flex flex-wrap justify-between gap-2">
+                <dt className="text-slate-400">Push deliveries</dt>
+                <dd className="font-medium">
+                  {health.latestRun.pushDeliveryCount} / {health.latestRun.pushAttemptCount}
+                </dd>
+              </div>
+            </>
+          )}
         </dl>
 
         <Link
