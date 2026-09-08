@@ -158,6 +158,9 @@ keyed rate-limit identifiers, proxy address selection, and `Retry-After`
 calculation.
 Beta-readiness tests cover unavailable-price guidance, sign-in-link cooldowns,
 and privacy-safe lookup/push aggregate summaries.
+Production-monitor tests cover strict health-response parsing and reject health
+URLs that contain credentials, query parameters, fragments, or non-HTTPS
+origins.
 
 ### GitHub quality automation
 
@@ -351,6 +354,23 @@ alert only when the endpoint returns `503` or cannot be reached. The endpoint
 is public, read-only, aggregate-only, and marked `Cache-Control: no-store`.
 Never place `CRON_SECRET` in an uptime monitor or use the protected cron route
 as a health check.
+
+`.github/workflows/production-health.yml` provides the baseline monitor without
+another service account. It runs daily at 10:00 UTC, can also be started
+manually, and fails when `/api/health` is degraded, malformed, not JSON, or no
+longer marked `no-store`. Its logs include only the public health state and
+reason, never the response body, product data, identifiers, or credentials.
+The workflow becomes active only after it is merged into the default branch.
+Update its public `PRICEPEEK_HEALTH_URL` when PricePeek moves to a custom domain.
+For faster incident alerts during a larger launch, supplement it with a
+dedicated uptime service and keep the same public endpoint and no-secret policy.
+
+To run the same monitor manually in PowerShell:
+
+```powershell
+$env:PRICEPEEK_HEALTH_URL = "https://price-peek-eight.vercel.app/api/health"
+npm.cmd run health:production
+```
 
 For beta operations, review these signals without opening customer records:
 
