@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node --test app/lib/*.test.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "health:production": "node scripts/check-production-health.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",

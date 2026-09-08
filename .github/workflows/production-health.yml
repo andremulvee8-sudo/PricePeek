@@ -1,0 +1,35 @@
+name: Production health
+
+on:
+  schedule:
+    - cron: "0 10 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-health
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Check aggregate price-check health
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      PRICEPEEK_HEALTH_URL: https://price-peek-eight.vercel.app/api/health
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Check production health
+        run: node scripts/check-production-health.ts
