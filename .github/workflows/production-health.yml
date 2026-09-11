@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
-      PRICEPEEK_HEALTH_URL: https://price-peek-eight.vercel.app/api/health
+      PRICEPEEK_HEALTH_URL: https://www.getpricepeek.com/api/health
 
     steps:
       - name: Check out repository

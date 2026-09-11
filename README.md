@@ -361,14 +361,14 @@ manually, and fails when `/api/health` is degraded, malformed, not JSON, or no
 longer marked `no-store`. Its logs include only the public health state and
 reason, never the response body, product data, identifiers, or credentials.
 The workflow becomes active only after it is merged into the default branch.
-Update its public `PRICEPEEK_HEALTH_URL` when PricePeek moves to a custom domain.
+The workflow checks the canonical `www.getpricepeek.com` production domain.
 For faster incident alerts during a larger launch, supplement it with a
 dedicated uptime service and keep the same public endpoint and no-secret policy.
 
 To run the same monitor manually in PowerShell:
 
 ```powershell
-$env:PRICEPEEK_HEALTH_URL = "https://price-peek-eight.vercel.app/api/health"
+$env:PRICEPEEK_HEALTH_URL = "https://www.getpricepeek.com/api/health"
 npm.cmd run health:production
 ```
 
