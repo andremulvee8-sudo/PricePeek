@@ -4,6 +4,9 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Terms",
   description: "Terms for using the PricePeek price-tracking service.",
+  alternates: {
+    canonical: "/terms",
+  },
 };
 
 export default function TermsPage() {

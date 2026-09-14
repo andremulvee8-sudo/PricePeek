@@ -7,6 +7,9 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Service Status",
   description: "Current PricePeek scheduled price-check status.",
+  alternates: {
+    canonical: "/status",
+  },
 };
 
 const STATUS_COPY = {
