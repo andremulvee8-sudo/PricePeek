@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   formatCurrency,
+  extractUrlFromText,
+  isAmazonShortUrl,
   parseAmazonProductUrl,
 } from "./amazonProduct.ts";
 
@@ -21,6 +23,29 @@ test("parses dp and gp/product links into the same canonical identity", () => {
     currency: "EUR",
     locale: "es-ES",
   });
+});
+
+test("parses mobile Amazon links and links copied with share text", () => {
+  const mobile = parseAmazonProductUrl(
+    "https://www.amazon.es/gp/aw/d/B0ABC12345/ref=mobile"
+  );
+  const shared = parseAmazonProductUrl(
+    "Mira este producto: https://www.amazon.es/example/dp/B0ABC12345?ref_=share."
+  );
+
+  assert.equal(mobile?.canonicalUrl, "https://www.amazon.es/dp/B0ABC12345");
+  assert.deepEqual(mobile, shared);
+  assert.equal(
+    extractUrlFromText("Amazon: https://amzn.eu/d/example),"),
+    "https://amzn.eu/d/example"
+  );
+});
+
+test("recognizes only HTTPS Amazon-owned short-link hosts", () => {
+  assert.equal(isAmazonShortUrl("https://amzn.eu/d/example"), true);
+  assert.equal(isAmazonShortUrl("Shared: https://a.co/d/example"), true);
+  assert.equal(isAmazonShortUrl("http://amzn.eu/d/example"), false);
+  assert.equal(isAmazonShortUrl("https://amzn.eu.example.com/d/example"), false);
 });
 
 test("rejects unsupported paths, invalid ASINs, and deceptive hosts", () => {

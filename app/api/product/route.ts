@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { parseAmazonProductUrl } from "../../lib/amazonProduct";
+import {
+  isAmazonShortUrl,
+  parseAmazonProductUrl,
+} from "../../lib/amazonProduct";
+import { resolveAmazonProductUrl } from "../../lib/amazonUrlResolver";
 import { readJsonObject } from "../../lib/apiRequest";
 import { calculateDealStatus } from "../../lib/productInsights";
 import {
@@ -62,10 +66,12 @@ export async function POST(request: Request) {
     );
   }
 
-  const parsedProduct =
+  const directProduct =
     typeof url === "string" ? parseAmazonProductUrl(url) : null;
+  const canResolveShortUrl =
+    typeof url === "string" && isAmazonShortUrl(url);
 
-  if (!parsedProduct) {
+  if (!directProduct && !canResolveShortUrl) {
     return NextResponse.json(
       { error: "Please provide a valid Amazon product URL." },
       { status: 400 }
@@ -107,6 +113,19 @@ export async function POST(request: Request) {
             "X-RateLimit-Reset": rateLimit.resetAt,
           },
         }
+      );
+    }
+
+    const parsedProduct =
+      directProduct ?? (await resolveAmazonProductUrl(url as string));
+
+    if (!parsedProduct) {
+      return NextResponse.json(
+        {
+          error:
+            "That Amazon share link could not be opened. Try copying the product link again.",
+        },
+        { status: 400 }
       );
     }
 
@@ -167,6 +186,7 @@ export async function POST(request: Request) {
           asin: parsedProduct.asin,
           currency: parsedProduct.currency,
           dealStatus,
+          url: parsedProduct.canonicalUrl,
         },
       },
       {
