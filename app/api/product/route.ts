@@ -4,6 +4,7 @@ import {
   parseAmazonProductUrl,
 } from "../../lib/amazonProduct";
 import { resolveAmazonProductUrl } from "../../lib/amazonUrlResolver";
+import { interpretAmazonLookupResponse } from "../../lib/amazonLookup";
 import { readJsonObject } from "../../lib/apiRequest";
 import { calculateDealStatus } from "../../lib/productInsights";
 import {
@@ -135,38 +136,43 @@ export async function POST(request: Request) {
       url: parsedProduct.canonicalUrl,
     });
 
-    const response = await fetch(
-      `https://api.rainforestapi.com/request?${params.toString()}`,
-      {
-        cache: "no-store",
-        signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS),
-      }
-    );
+    let response: Response;
+    let data: unknown;
 
-    const data = await response.json().catch(() => null);
+    try {
+      response = await fetch(
+        `https://api.rainforestapi.com/request?${params.toString()}`,
+        {
+          cache: "no-store",
+          signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS),
+        }
+      );
+      data = await response.json().catch(() => null);
+    } catch {
+      return NextResponse.json(
+        {
+          error: "The product service is temporarily unavailable. Please try again.",
+          code: "provider-unavailable",
+        },
+        { status: 502 }
+      );
+    }
 
-    if (!response.ok) {
+    const lookup = interpretAmazonLookupResponse(response.ok, data);
+
+    if (!lookup.ok) {
       console.error("Product provider request failed:", {
         status: response.status,
+        kind: lookup.kind,
       });
 
       return NextResponse.json(
-        { error: "The product service is temporarily unavailable. Please try again." },
-        { status: 502 }
+        { error: lookup.message, code: lookup.kind },
+        { status: lookup.status }
       );
     }
 
-    if (data?.request_info?.success !== true || !data?.product) {
-      return NextResponse.json(
-        { error: "No current product information was available for that link." },
-        { status: 502 }
-      );
-    }
-
-    const currentPrice =
-      data.product.buybox_winner?.price?.value ??
-      data.product.price?.value ??
-      null;
+    const currentPrice = lookup.product.currentPrice;
     const dealStatus = calculateDealStatus(currentPrice, []);
 
     return NextResponse.json(
@@ -174,14 +180,11 @@ export async function POST(request: Request) {
         success: true,
         remainingSearches: rateLimit.remaining,
         product: {
-          title: data.product.title,
+          title: lookup.product.title,
           currentPrice,
           lowestPrice: dealStatus.historicalMinimum,
-          rating: data.product.rating ?? null,
-          image:
-            data.product.main_image?.link ??
-            data.product.images?.[0]?.link ??
-            null,
+          rating: lookup.product.rating,
+          image: lookup.product.image,
           marketplace: parsedProduct.marketplace,
           asin: parsedProduct.asin,
           currency: parsedProduct.currency,

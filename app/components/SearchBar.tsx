@@ -477,7 +477,7 @@ export default function SearchBar() {
                     <p className="mt-2 text-lg font-bold text-green-400">
                       {item.currentPrice != null
                         ? formatCurrency(item.currentPrice, item.currency)
-                        : "N/A"}
+                        : "Price unavailable"}
                     </p>
 
                     {item.targetPrice != null && (

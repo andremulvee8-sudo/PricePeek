@@ -13,8 +13,10 @@ import {
 } from "../../../lib/priceCheckScheduling";
 import { summarizeCronResults } from "../../../lib/cronHealth";
 import { isExpiredPushSubscriptionError } from "../../../lib/pushDelivery";
+import { interpretAmazonLookupResponse } from "../../../lib/amazonLookup";
 
 export const maxDuration = 300;
+const LOOKUP_TIMEOUT_MS = 10_000;
 
 export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET;
@@ -160,29 +162,58 @@ export async function GET(request: Request) {
         url: product.amazon_url,
       });
 
-      const response = await fetch(
-        `https://api.rainforestapi.com/request?${params.toString()}`,
-        { cache: "no-store" }
-      );
+      let response: Response;
+      let rainforestData: unknown;
 
-      const rainforestData = await response.json();
-
-      const currentPrice =
-        rainforestData?.product?.buybox_winner?.price?.value ??
-        rainforestData?.product?.price?.value ??
-        null;
-
-      if (!response.ok || typeof currentPrice !== "number") {
-        const errorMessage =
-          rainforestData?.request_info?.message ||
-          rainforestData?.error ||
-          `Rainforest lookup failed with status ${response.status}`;
+      try {
+        response = await fetch(
+          `https://api.rainforestapi.com/request?${params.toString()}`,
+          {
+            cache: "no-store",
+            signal: AbortSignal.timeout(LOOKUP_TIMEOUT_MS),
+          }
+        );
+        rainforestData = await response.json().catch(() => null);
+      } catch {
+        const errorMessage = "Product service temporarily unavailable";
 
         await recordFailure(errorMessage);
         results.push({
           id: product.id,
           status: "price-check-failed",
-          error: errorMessage,
+          reason: "provider-unavailable",
+        });
+        continue;
+      }
+
+      const lookup = interpretAmazonLookupResponse(
+        response.ok,
+        rainforestData
+      );
+
+      if (!lookup.ok) {
+        const errorMessage =
+          lookup.kind === "product-unavailable"
+            ? "Amazon listing unavailable"
+            : "Product service temporarily unavailable";
+
+        await recordFailure(errorMessage);
+        results.push({
+          id: product.id,
+          status: "price-check-failed",
+          reason: lookup.kind,
+        });
+        continue;
+      }
+
+      const currentPrice = lookup.product.currentPrice;
+
+      if (currentPrice == null) {
+        await recordFailure("Current price unavailable");
+        results.push({
+          id: product.id,
+          status: "price-check-failed",
+          reason: "price-unavailable",
         });
         continue;
       }

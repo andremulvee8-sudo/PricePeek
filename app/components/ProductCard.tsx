@@ -69,10 +69,16 @@ export default function ProductCard({
           <div className="mt-6 grid grid-cols-2 gap-4">
             <div>
               <p className="text-slate-400">Current Price</p>
-              <p className="text-2xl font-bold">
+              <p
+                className={
+                  product.currentPrice != null
+                    ? "text-2xl font-bold"
+                    : "text-lg font-semibold text-amber-200"
+                }
+              >
                 {product.currentPrice != null
                   ? formatCurrency(product.currentPrice, product.currency)
-                  : "N/A"}
+                  : "Price unavailable"}
               </p>
             </div>
 
