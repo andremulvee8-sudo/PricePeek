@@ -105,6 +105,11 @@ failures, and expired subscriptions. They contain no product, account, device,
 URL, price, endpoint, key, or provider-response data. Existing run rows are
 preserved and receive zero-valued counters.
 
+`supabase/migrations/20260919000000_subscription_foundation.sql` creates a
+provider-neutral, account-scoped subscription lifecycle table for a future
+paid plan. It does not create charges or contact a billing provider, and it
+does not modify existing products, price history, accounts, or alerts.
+
 Before applying it to an existing database, take a backup and test it against a
 staging copy. Existing rows that violate the new positive-price or nonnegative
 counter constraints must be corrected first. Existing duplicate `device_id`
@@ -165,6 +170,22 @@ and privacy-safe lookup/push aggregate summaries.
 Production-monitor tests cover strict health-response parsing and reject health
 URLs that contain credentials, query parameters, fragments, or non-HTTPS
 origins.
+Subscription-foundation tests cover free defaults, active and expiring paid
+access, scheduled cancellation, expired periods, and malformed billing state.
+
+## Plans and billing foundation
+
+The public `/plans` page accurately describes the current free beta and marks
+PricePeek Plus as planned. Checkout is not enabled and the application does not
+collect payment details. Plan limits in `app/lib/subscription.ts` are the future
+entitlement source of truth; they are not enforced while the beta remains free.
+
+The subscription migration is deliberately provider-neutral. Only the server
+administrative client may create or update subscription rows; authenticated
+users may read their own row through row-level security, and anonymous users
+have no access. A later billing-provider integration must verify webhook
+signatures before changing subscription state and must never trust plan or
+status values sent by a browser.
 
 ### Supported Amazon marketplaces
 
@@ -446,7 +467,9 @@ price rises above the target.
    `20260904000000_atomic_api_rate_limits.sql` before deploying code that calls
    `consume_api_rate_limit`. Apply
    `20260907000000_beta_readiness_metrics.sql` before deploying code that writes
-   or reads the new aggregate health counters.
+   or reads the new aggregate health counters. Apply
+   `20260919000000_subscription_foundation.sql` before deploying code that reads
+   or writes subscription lifecycle state.
 2. Configure every environment variable in the staging deployment.
 3. Run the quality checks above.
 4. Deploy to staging and verify product lookup, tracking, deletion, price
