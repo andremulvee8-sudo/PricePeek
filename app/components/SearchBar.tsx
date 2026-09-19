@@ -7,6 +7,7 @@ import PriceHistoryChart from "./PriceHistoryChart";
 import TrackedProductControls from "./TrackedProductControls";
 import {
   formatCurrency,
+  isAmazonShortUrl,
   parseAmazonProductUrl,
 } from "../lib/amazonProduct";
 import { getOrCreateDeviceId } from "../lib/deviceId";
@@ -143,7 +144,7 @@ export default function SearchBar() {
     const trimmedUrl = url.trim();
     const parsedProduct = parseAmazonProductUrl(trimmedUrl);
 
-    if (!parsedProduct) {
+    if (!parsedProduct && !isAmazonShortUrl(trimmedUrl)) {
       setMessage("❌ Please enter a valid Amazon product URL.");
       setShowProductCard(false);
       setProduct(null);
@@ -172,8 +173,10 @@ export default function SearchBar() {
 
       setProduct({
         ...data.product,
-        url: parsedProduct.canonicalUrl,
+        url: data.product.url,
       });
+
+      setUrl(data.product.url);
 
       setMessage("✅ Product found!");
       setShowProductCard(true);

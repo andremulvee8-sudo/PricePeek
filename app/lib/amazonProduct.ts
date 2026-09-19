@@ -34,6 +34,22 @@ const MARKETPLACES: Record<string, Omit<AmazonMarketplace, "marketplace">> = {
 };
 
 const SUPPORTED_SUBDOMAINS = new Set(["www", "smile", "m"]);
+const AMAZON_SHORT_LINK_HOSTS = new Set([
+  "a.co",
+  "amzn.asia",
+  "amzn.eu",
+  "amzn.to",
+]);
+
+function removeTrailingShareTextPunctuation(value: string) {
+  return value.replace(/[),.;!?\]}]+$/g, "");
+}
+
+export function extractUrlFromText(value: string) {
+  const match = value.trim().match(/https?:\/\/[^\s<>"']+/i);
+
+  return match ? removeTrailingShareTextPunctuation(match[0]) : null;
+}
 
 function normalizeMarketplace(hostname: string) {
   const host = hostname.toLowerCase().replace(/\.$/, "");
@@ -50,7 +66,11 @@ export function parseAmazonProductUrl(value: string): ParsedAmazonProduct | null
   let url: URL;
 
   try {
-    url = new URL(value);
+    const extractedUrl = extractUrlFromText(value);
+
+    if (!extractedUrl) return null;
+
+    url = new URL(extractedUrl);
   } catch {
     return null;
   }
@@ -63,7 +83,7 @@ export function parseAmazonProductUrl(value: string): ParsedAmazonProduct | null
   if (!marketplaceDetails) return null;
 
   const match = url.pathname.match(
-    /\/(?:dp|gp\/product)\/([A-Z0-9]{10})(?:\/|$)/i
+    /\/(?:dp|gp\/(?:product|aw\/d))\/([A-Z0-9]{10})(?:\/|$)/i
   );
 
   if (!match?.[1]) return null;
@@ -76,6 +96,23 @@ export function parseAmazonProductUrl(value: string): ParsedAmazonProduct | null
     canonicalUrl: `https://www.${marketplace}/dp/${asin}`,
     ...marketplaceDetails,
   };
+}
+
+export function isAmazonShortUrl(value: string) {
+  const extractedUrl = extractUrlFromText(value);
+
+  if (!extractedUrl) return false;
+
+  try {
+    const url = new URL(extractedUrl);
+
+    return (
+      url.protocol === "https:" &&
+      AMAZON_SHORT_LINK_HOSTS.has(url.hostname.toLowerCase())
+    );
+  } catch {
+    return false;
+  }
 }
 
 export function formatCurrency(
