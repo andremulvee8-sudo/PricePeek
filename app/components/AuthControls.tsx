@@ -127,6 +127,12 @@ export default function AuthControls() {
                 Notification settings
               </a>
               <Link
+                href="/plans"
+                className="rounded-lg border border-slate-700 px-3 py-2 text-sm transition hover:border-green-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-400"
+              >
+                Plans
+              </Link>
+              <Link
                 href="/privacy"
                 className="rounded-lg border border-slate-700 px-3 py-2 text-sm transition hover:border-green-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-400"
               >
