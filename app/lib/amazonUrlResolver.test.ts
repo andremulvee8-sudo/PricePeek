@@ -32,6 +32,23 @@ test("resolves an Amazon short link to a supported product URL", async () => {
   assert.equal(result?.canonicalUrl, "https://www.amazon.es/dp/B0ABC12345");
 });
 
+test("accepts each supported Amazon short-link host", async () => {
+  for (const host of ["a.co", "amzn.eu", "amzn.to", "amzn.asia"]) {
+    const result = await resolveAmazonProductUrl(
+      `Shared from Amazon https://${host}/d/example`,
+      async () =>
+        new Response(null, {
+          status: 301,
+          headers: {
+            location: "https://www.amazon.com/dp/B0ABC12345",
+          },
+        })
+    );
+
+    assert.equal(result?.asin, "B0ABC12345");
+  }
+});
+
 test("never follows a short-link redirect to a non-Amazon host", async () => {
   let requests = 0;
   const result = await resolveAmazonProductUrl(

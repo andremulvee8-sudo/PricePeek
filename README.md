@@ -145,9 +145,13 @@ npm.cmd run typecheck
 npm.cmd run build
 ```
 
-Tests cover Amazon URL identity parsing, marketplace currencies, tracking
-deduplication, historical-price deal wording, scheduled-product eligibility,
-failure backoff, and duplicate-notification suppression.
+Tests cover every supported Amazon marketplace and currency across `/dp/`,
+`/gp/product/`, and mobile `/gp/aw/d/` paths, including URLs embedded in copied
+phone share text. Short-link tests cover `a.co`, `amzn.eu`, `amzn.to`, and
+`amzn.asia`, strict redirect safety, and the complete mocked phone-share lookup
+flow. Tests also cover tracking deduplication, historical-price deal wording,
+scheduled-product eligibility, failure backoff, and duplicate-notification
+suppression.
 They also cover account/device ownership selection and claim deduplication
 decisions, sign-in error wording, and expired push-subscription detection.
 Launch-readiness tests also cover account-deletion confirmation, privacy-safe
@@ -161,6 +165,24 @@ and privacy-safe lookup/push aggregate summaries.
 Production-monitor tests cover strict health-response parsing and reject health
 URLs that contain credentials, query parameters, fragments, or non-HTTPS
 origins.
+
+### Supported Amazon marketplaces
+
+PricePeek recognizes Amazon AE, Australia, Belgium, Brazil, Canada, Egypt,
+France, Germany, India, Italy, Japan, Mexico, the Netherlands, Poland, Saudi
+Arabia, Singapore, Spain, Sweden, Turkey, the United Kingdom, and the United
+States. Currency comes from the link's marketplace and is displayed with
+`Intl.NumberFormat`; PricePeek does not convert prices between currencies.
+
+Lookup outcomes remain intentionally distinct:
+
+- A valid listing without a current buy-box price can still be saved and is
+  shown as **Price unavailable** while scheduled checks retry it.
+- A removed or unavailable listing receives a clear listing-specific message.
+- A timeout or provider failure receives a temporary-service message and never
+  exposes upstream response details.
+- Scheduled checks record a safe failure category, advance `next_check_at`
+  using backoff, and continue processing the queue.
 
 ### GitHub quality automation
 
