@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import BillingControls from "../components/BillingControls";
 import { SUBSCRIPTION_PLANS } from "../lib/subscription";
 
 export const metadata: Metadata = {
@@ -10,7 +11,13 @@ export const metadata: Metadata = {
   },
 };
 
-export default function PlansPage() {
+type PlansPageProps = {
+  searchParams: Promise<{ checkout?: string | string[] }>;
+};
+
+export default async function PlansPage({ searchParams }: PlansPageProps) {
+  const checkout = (await searchParams).checkout;
+
   return (
     <main className="min-h-screen bg-slate-950 px-6 py-16 text-white">
       <section className="mx-auto max-w-5xl">
@@ -21,25 +28,34 @@ export default function PlansPage() {
           Price tracking that stays clear and predictable.
         </h1>
         <p className="mt-5 max-w-2xl text-lg text-slate-300">
-          PricePeek is free during the beta. Paid checkout is not enabled, so
-          you cannot be charged today.
+          Start free, then upgrade only when you need room for more products.
+          Stripe securely handles payment details and subscription management.
         </p>
+
+        {checkout === "success" ? (
+          <p role="status" className="mt-6 rounded-xl border border-green-400/40 bg-green-400/10 p-4 text-green-200">
+            Checkout completed. Your Plus access will appear as soon as Stripe confirms the subscription.
+          </p>
+        ) : checkout === "canceled" ? (
+          <p role="status" className="mt-6 rounded-xl border border-slate-700 bg-slate-900 p-4 text-slate-300">
+            Checkout was canceled. No subscription change was made.
+          </p>
+        ) : null}
 
         <div className="mt-10 grid gap-6 md:grid-cols-2">
           <article className="rounded-3xl border border-green-400/50 bg-green-400/10 p-7">
-            <p className="text-sm font-semibold text-green-300">Available now</p>
+            <p className="text-sm font-semibold text-green-300">Free</p>
             <h2 className="mt-3 text-3xl font-bold">
-              {SUBSCRIPTION_PLANS.free.name} beta
+              {SUBSCRIPTION_PLANS.free.name}
             </h2>
             <p className="mt-3 text-slate-300">
-              All currently released PricePeek features remain available while
-              the beta is running.
+              Track up to {SUBSCRIPTION_PLANS.free.trackedProductLimit} products with no payment details required.
             </p>
             <ul className="mt-6 space-y-3 text-slate-200">
               <li>Daily automatic Amazon price checks</li>
               <li>Target-price push alerts</li>
               <li>Price history and account sync</li>
-              <li>No payment details required</li>
+              <li>Installable web app</li>
             </ul>
             <Link
               href="/#amazon-product-url"
@@ -50,19 +66,21 @@ export default function PlansPage() {
           </article>
 
           <article className="rounded-3xl border border-slate-700 bg-slate-900 p-7">
-            <p className="text-sm font-semibold text-slate-400">Planned</p>
+            <p className="text-sm font-semibold text-green-300">More capacity</p>
             <h2 className="mt-3 text-3xl font-bold">
               {SUBSCRIPTION_PLANS.plus.name}
             </h2>
             <p className="mt-3 text-slate-300">
-              A future paid plan for people who need more tracked products and
-              faster checks. Final features and pricing will be shown before
-              checkout is introduced.
+              Track up to {SUBSCRIPTION_PLANS.plus.trackedProductLimit} products while keeping every current PricePeek feature.
             </p>
-            <p className="mt-6 rounded-xl border border-slate-700 bg-slate-950/60 p-4 text-sm text-slate-300">
-              PricePeek will never start a paid subscription without a clear,
-              explicit checkout confirmation.
-            </p>
+            <ul className="mt-6 space-y-3 text-slate-200">
+              <li>Daily automatic Amazon price checks</li>
+              <li>Target-price push alerts</li>
+              <li>Price history and account sync</li>
+              <li>Cancel anytime in Stripe’s secure portal</li>
+            </ul>
+            <p className="mt-5 text-sm text-slate-400">The exact recurring price and billing period are shown before you confirm in Stripe Checkout.</p>
+            <BillingControls />
           </article>
         </div>
 

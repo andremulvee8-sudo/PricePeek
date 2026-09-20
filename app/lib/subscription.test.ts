@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getSubscriptionAccess, SUBSCRIPTION_PLANS } from "./subscription.ts";
+import {
+  getSubscriptionAccess,
+  hasReachedTrackedProductLimit,
+  SUBSCRIPTION_PLANS,
+} from "./subscription.ts";
 
 const NOW = new Date("2026-09-19T12:00:00.000Z");
 
@@ -29,8 +33,25 @@ test("grants Plus access for an active unexpired subscription", () => {
   assert.equal(access.plan, "plus");
   assert.equal(access.status, "active");
   assert.equal(access.isPaid, true);
-  assert.equal(access.trackedProductLimit, 50);
-  assert.equal(access.checkIntervalHours, 6);
+  assert.equal(access.trackedProductLimit, 20);
+  assert.equal(access.checkIntervalHours, 24);
+});
+
+test("enforces the selected plan product limit", () => {
+  const free = getSubscriptionAccess(null, NOW);
+  const plus = getSubscriptionAccess(
+    {
+      plan: "plus",
+      status: "active",
+      currentPeriodEnd: "2026-10-19T12:00:00.000Z",
+    },
+    NOW
+  );
+
+  assert.equal(hasReachedTrackedProductLimit(4, free), false);
+  assert.equal(hasReachedTrackedProductLimit(5, free), true);
+  assert.equal(hasReachedTrackedProductLimit(19, plus), false);
+  assert.equal(hasReachedTrackedProductLimit(20, plus), true);
 });
 
 test("keeps access through the paid period when cancellation is scheduled", () => {

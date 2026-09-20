@@ -15,6 +15,7 @@ for scheduled checks.
 - A random cron secret
 - A separate random rate-limit secret of at least 32 characters
 - A public support email address before inviting beta testers
+- A Stripe account, recurring Price, and webhook endpoint before enabling Plus
 
 ## Local setup
 
@@ -63,6 +64,9 @@ npm.cmd run dev -- --experimental-https
 | `CRON_SECRET` | Bearer token protecting the cron route |
 | `RATE_LIMIT_SECRET` | Server-only key used to digest rate-limit identifiers; use at least 32 random characters |
 | `SUPPORT_EMAIL` | Public support/privacy contact rendered on legal pages; not a secret |
+| `STRIPE_SECRET_KEY` | Server-only Stripe secret key; use a test-mode key until launch review |
+| `STRIPE_WEBHOOK_SECRET` | Server-only signing secret for the exact PricePeek webhook endpoint |
+| `STRIPE_PLUS_PRICE_ID` | Server-only fixed recurring Stripe Price ID for Plus |
 
 ## Database migration
 
@@ -106,9 +110,14 @@ URL, price, endpoint, key, or provider-response data. Existing run rows are
 preserved and receive zero-valued counters.
 
 `supabase/migrations/20260919000000_subscription_foundation.sql` creates a
-provider-neutral, account-scoped subscription lifecycle table for a future
-paid plan. It does not create charges or contact a billing provider, and it
+provider-neutral, account-scoped subscription lifecycle table. It does not
+create charges or contact a billing provider, and it
 does not modify existing products, price history, accounts, or alerts.
+
+`supabase/migrations/20260920000000_stripe_billing_events.sql` creates a
+server-only idempotency ledger containing Stripe event IDs, event types, and
+processing timestamps. It contains no payment details and does not modify any
+existing subscription, tracked product, or price-history row.
 
 Before applying it to an existing database, take a backup and test it against a
 staging copy. Existing rows that violate the new positive-price or nonnegative
@@ -170,22 +179,63 @@ and privacy-safe lookup/push aggregate summaries.
 Production-monitor tests cover strict health-response parsing and reject health
 URLs that contain credentials, query parameters, fragments, or non-HTTPS
 origins.
-Subscription-foundation tests cover free defaults, active and expiring paid
-access, scheduled cancellation, expired periods, and malformed billing state.
+Billing tests cover free defaults, active and expiring paid access, scheduled
+cancellation, expired periods, plan capacity, Stripe state normalization,
+subscription periods, identifiers, and safe redirect origins.
 
-## Plans and billing foundation
+## Plans and Stripe billing
 
-The public `/plans` page accurately describes the current free beta and marks
-PricePeek Plus as planned. Checkout is not enabled and the application does not
-collect payment details. Plan limits in `app/lib/subscription.ts` are the future
-entitlement source of truth; they are not enforced while the beta remains free.
+The public `/plans` page offers a Free plan for up to 5 tracked products and a
+Plus plan for up to 20. Both use the current daily check schedule. The recurring
+price and billing period are defined only by the server-side Stripe Price and
+are shown in hosted Stripe Checkout before confirmation. PricePeek never
+receives card details. Each Checkout Session explicitly enables Stripe Managed
+Payments so Stripe acts as merchant of record for supported transactions.
 
-The subscription migration is deliberately provider-neutral. Only the server
-administrative client may create or update subscription rows; authenticated
-users may read their own row through row-level security, and anonymous users
-have no access. A later billing-provider integration must verify webhook
-signatures before changing subscription state and must never trust plan or
-status values sent by a browser.
+Only the server administrative client may update subscription rows.
+Authenticated users may read their own row through row-level security, and
+anonymous users have no access. The application verifies the raw request body
+with Stripe's endpoint signing secret before processing a webhook. It never
+trusts a plan, status, price, customer ID, or subscription ID sent by a browser.
+
+### Stripe setup and test-mode verification
+
+1. Apply `20260919000000_subscription_foundation.sql` and then
+   `20260920000000_stripe_billing_events.sql` to the intended staging database.
+2. In Stripe **test mode**, create one Product named PricePeek Plus and one
+   recurring Price. Copy only its `price_...` ID into the protected
+   `STRIPE_PLUS_PRICE_ID` environment variable.
+3. Store the Stripe test secret key as `STRIPE_SECRET_KEY`. Never use a
+   `NEXT_PUBLIC_` prefix for any Stripe value in this project.
+4. Create a webhook endpoint at
+   `https://www.getpricepeek.com/api/billing/webhook` and subscribe to
+   `checkout.session.completed`, `customer.subscription.created`,
+   `customer.subscription.updated`, and `customer.subscription.deleted`.
+5. Store that endpoint's `whsec_...` signing secret as
+   `STRIPE_WEBHOOK_SECRET`. A signing secret belongs to one endpoint and mode;
+   do not substitute an API key.
+6. Enable Stripe's customer portal for subscription cancellation and payment
+   method management.
+7. Redeploy after adding or changing environment variables. Sign in with an
+   internal account, use a Stripe test card, confirm Plus appears, open Manage
+   billing, cancel it, and verify access ends only when the paid period ends.
+
+For local webhook testing, use the official Stripe CLI to forward test events:
+
+```powershell
+stripe listen --forward-to localhost:3000/api/billing/webhook
+```
+
+Use the temporary signing secret printed by that process only in `.env.local`.
+Do not paste keys or signing secrets into chat, logs, source, or screenshots.
+Switching to live mode is a separate launch action: create or select a live
+Price, register a live webhook endpoint, replace all three protected values,
+redeploy, and complete one deliberately authorized low-value purchase and
+refund. Merely deploying this code cannot create a charge.
+
+Account deletion is blocked while a subscription is active, trialing, past
+due, or paused. The user must cancel through the Stripe portal and wait until
+the subscription ends, preventing deletion from orphaning an ongoing charge.
 
 ### Supported Amazon marketplaces
 
@@ -469,7 +519,9 @@ price rises above the target.
    `20260907000000_beta_readiness_metrics.sql` before deploying code that writes
    or reads the new aggregate health counters. Apply
    `20260919000000_subscription_foundation.sql` before deploying code that reads
-   or writes subscription lifecycle state.
+   or writes subscription lifecycle state. Apply
+   `20260920000000_stripe_billing_events.sql` before registering or enabling the
+   Stripe webhook endpoint.
 2. Configure every environment variable in the staging deployment.
 3. Run the quality checks above.
 4. Deploy to staging and verify product lookup, tracking, deletion, price

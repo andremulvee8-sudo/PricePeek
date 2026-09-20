@@ -3,6 +3,8 @@ import { isAccountDeletionConfirmed } from "../../lib/accountDeletion";
 import { readJsonObject } from "../../lib/apiRequest";
 import { getBearerToken } from "../../lib/ownership";
 import { supabaseAdmin } from "../../lib/supabaseAdmin";
+import { requiresBillingManagement } from "../../lib/billing";
+import { loadStripeBillingState } from "../../lib/billingData";
 
 export async function DELETE(request: Request) {
   const token = getBearerToken(request.headers.get("authorization"));
@@ -32,6 +34,29 @@ export async function DELETE(request: Request) {
     return NextResponse.json(
       { error: "The confirmation email does not match this account." },
       { status: 400 }
+    );
+  }
+
+  try {
+    const billing = await loadStripeBillingState(data.user.id);
+
+    if (requiresBillingManagement(billing.status)) {
+      return NextResponse.json(
+        {
+          error:
+            "Cancel the active subscription from Plans → Manage billing, then delete the account after the subscription ends.",
+        },
+        { status: 409 }
+      );
+    }
+  } catch (billingError) {
+    console.error("Account billing check failed:", {
+      message:
+        billingError instanceof Error ? billingError.message : "unknown",
+    });
+    return NextResponse.json(
+      { error: "Could not verify billing status. Please try again later." },
+      { status: 503 }
     );
   }
 
