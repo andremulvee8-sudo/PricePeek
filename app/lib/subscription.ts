@@ -6,8 +6,8 @@ export const SUBSCRIPTION_PLANS = {
   },
   plus: {
     name: "Plus",
-    trackedProductLimit: 50,
-    checkIntervalHours: 6,
+    trackedProductLimit: 20,
+    checkIntervalHours: 24,
   },
 } as const;
 
@@ -50,6 +50,13 @@ const VALID_STATUSES = new Set<SubscriptionStatus>([
 
 function isSubscriptionPlan(value: unknown): value is SubscriptionPlan {
   return typeof value === "string" && value in SUBSCRIPTION_PLANS;
+}
+
+export function hasReachedTrackedProductLimit(
+  trackedProductCount: number,
+  access: SubscriptionAccess
+) {
+  return trackedProductCount >= access.trackedProductLimit;
 }
 
 function isSubscriptionStatus(value: unknown): value is SubscriptionStatus {

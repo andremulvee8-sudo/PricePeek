@@ -4,6 +4,11 @@ import { readJsonObject } from "../../lib/apiRequest";
 import { calculateDealStatus } from "../../lib/productInsights";
 import { getOwnerColumn } from "../../lib/ownership";
 import { resolveRequestOwner } from "../../lib/requestOwner";
+import { loadSubscriptionAccess } from "../../lib/billingData";
+import {
+  getSubscriptionAccess,
+  hasReachedTrackedProductLimit,
+} from "../../lib/subscription";
 import { supabaseAdmin } from "../../lib/supabaseAdmin";
 
 export async function POST(request: Request) {
@@ -70,6 +75,34 @@ export async function POST(request: Request) {
           id: existingProduct.id,
         },
         { status: 409 }
+      );
+    }
+
+    let countQuery = supabaseAdmin
+      .from("tracked_products")
+      .select("id", { count: "exact", head: true })
+      .eq(ownerColumn.column, ownerColumn.value);
+
+    if (owner.kind === "device") {
+      countQuery = countQuery.is("owner_user_id", null);
+    }
+
+    const { count, error: countError } = await countQuery;
+
+    if (countError) throw new Error(countError.message);
+
+    const access =
+      owner.kind === "user"
+        ? await loadSubscriptionAccess(owner.userId)
+        : getSubscriptionAccess(null);
+
+    if (hasReachedTrackedProductLimit(count ?? 0, access)) {
+      return NextResponse.json(
+        {
+          error: `Your ${access.plan === "plus" ? "Plus" : "Free"} plan can track up to ${access.trackedProductLimit} products.`,
+          code: "tracked_product_limit_reached",
+        },
+        { status: 403 }
       );
     }
 
