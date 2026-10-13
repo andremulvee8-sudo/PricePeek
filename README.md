@@ -64,7 +64,7 @@ npm.cmd run dev -- --experimental-https
 | `CRON_SECRET` | Bearer token protecting the cron route |
 | `RATE_LIMIT_SECRET` | Server-only key used to digest rate-limit identifiers; use at least 32 random characters |
 | `SUPPORT_EMAIL` | Public support/privacy contact rendered on legal pages; not a secret |
-| `STRIPE_SECRET_KEY` | Server-only Stripe secret key; use a test-mode key until launch review |
+| `STRIPE_SECRET_KEY` | Server-only Stripe secret or restricted key (`sk_` or `rk_`); use test mode until launch review |
 | `STRIPE_WEBHOOK_SECRET` | Server-only signing secret for the exact PricePeek webhook endpoint |
 | `STRIPE_PLUS_PRICE_ID` | Server-only fixed recurring Stripe Price ID for Plus |
 
