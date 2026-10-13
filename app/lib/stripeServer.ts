@@ -4,10 +4,11 @@ import Stripe from "stripe";
 
 let stripeClient: Stripe | null = null;
 
-function requireEnvironmentValue(name: string, prefix: string) {
+function requireEnvironmentValue(name: string, prefixes: string | string[]) {
   const value = process.env[name]?.trim();
+  const allowedPrefixes = Array.isArray(prefixes) ? prefixes : [prefixes];
 
-  if (!value || !value.startsWith(prefix)) {
+  if (!value || !allowedPrefixes.some((prefix) => value.startsWith(prefix))) {
     throw new Error(`${name} is not configured correctly.`);
   }
 
@@ -17,7 +18,7 @@ function requireEnvironmentValue(name: string, prefix: string) {
 export function getStripeClient() {
   if (!stripeClient) {
     stripeClient = new Stripe(
-      requireEnvironmentValue("STRIPE_SECRET_KEY", "sk_")
+      requireEnvironmentValue("STRIPE_SECRET_KEY", ["sk_", "rk_"])
     );
   }
 
