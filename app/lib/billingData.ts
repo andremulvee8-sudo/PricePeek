@@ -8,13 +8,16 @@ import {
 } from "./billing";
 import { getSubscriptionAccess } from "./subscription";
 import { supabaseAdmin } from "./supabaseAdmin";
+import { withTransientSupabaseReadRetry } from "./supabaseReadRetry";
 
 export async function loadSubscriptionAccess(userId: string) {
-  const { data, error } = await supabaseAdmin
-    .from("user_subscriptions")
-    .select("plan, status, current_period_end, cancel_at_period_end")
-    .eq("user_id", userId)
-    .maybeSingle();
+  const { data, error } = await withTransientSupabaseReadRetry(() =>
+    supabaseAdmin
+      .from("user_subscriptions")
+      .select("plan, status, current_period_end, cancel_at_period_end")
+      .eq("user_id", userId)
+      .maybeSingle()
+  );
 
   if (error) throw new Error(error.message);
 
@@ -31,11 +34,13 @@ export async function loadSubscriptionAccess(userId: string) {
 }
 
 export async function findStripeCustomerId(userId: string) {
-  const { data, error } = await supabaseAdmin
-    .from("user_subscriptions")
-    .select("provider_customer_id")
-    .eq("user_id", userId)
-    .maybeSingle();
+  const { data, error } = await withTransientSupabaseReadRetry(() =>
+    supabaseAdmin
+      .from("user_subscriptions")
+      .select("provider_customer_id")
+      .eq("user_id", userId)
+      .maybeSingle()
+  );
 
   if (error) throw new Error(error.message);
   return typeof data?.provider_customer_id === "string"
@@ -44,11 +49,13 @@ export async function findStripeCustomerId(userId: string) {
 }
 
 export async function loadStripeBillingState(userId: string) {
-  const { data, error } = await supabaseAdmin
-    .from("user_subscriptions")
-    .select("status, provider_customer_id, provider_subscription_id")
-    .eq("user_id", userId)
-    .maybeSingle();
+  const { data, error } = await withTransientSupabaseReadRetry(() =>
+    supabaseAdmin
+      .from("user_subscriptions")
+      .select("status, provider_customer_id, provider_subscription_id")
+      .eq("user_id", userId)
+      .maybeSingle()
+  );
 
   if (error) throw new Error(error.message);
 
