@@ -133,6 +133,12 @@ export default function AuthControls() {
                 Plans
               </Link>
               <Link
+                href="/help"
+                className="rounded-lg border border-slate-700 px-3 py-2 text-sm transition hover:border-green-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-400"
+              >
+                Help
+              </Link>
+              <Link
                 href="/privacy"
                 className="rounded-lg border border-slate-700 px-3 py-2 text-sm transition hover:border-green-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-400"
               >

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Navbar from "./components/Navbar";
 import Stats from "./components/Stats";
 import SearchBar from "./components/SearchBar";
@@ -28,6 +29,61 @@ export default function Home() {
         <SearchBar />
         <PwaControls />
         <PushNotificationButton />
+      </section>
+
+      <section
+        aria-labelledby="how-pricepeek-works"
+        className="mx-auto mt-28 max-w-6xl px-6"
+      >
+        <div className="text-center">
+          <p className="text-sm font-semibold uppercase tracking-wider text-green-400">
+            Simple by design
+          </p>
+          <h2
+            id="how-pricepeek-works"
+            className="mt-3 text-3xl font-bold sm:text-4xl"
+          >
+            Start tracking in three steps
+          </h2>
+        </div>
+        <ol className="mt-10 grid gap-6 md:grid-cols-3">
+          {[
+            [
+              "1",
+              "Copy an Amazon link",
+              "Use the Share button in Amazon or copy the page address. Full and a.co links are supported.",
+            ],
+            [
+              "2",
+              "Set your target",
+              "Paste the link, look up the product, choose the price you want, and save it.",
+            ],
+            [
+              "3",
+              "Check your progress",
+              "PricePeek checks active products daily. Push alerts are optional and can be enabled separately.",
+            ],
+          ].map(([number, title, description]) => (
+            <li
+              key={number}
+              className="rounded-3xl border border-slate-800 bg-slate-900 p-7"
+            >
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500 font-bold text-slate-950">
+                {number}
+              </span>
+              <h3 className="mt-5 text-xl font-bold">{title}</h3>
+              <p className="mt-3 text-slate-400">{description}</p>
+            </li>
+          ))}
+        </ol>
+        <div className="mt-8 text-center">
+          <Link
+            href="/help"
+            className="inline-flex rounded-xl border border-slate-700 px-5 py-3 font-semibold transition hover:border-green-400 hover:text-green-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-400"
+          >
+            Read the complete guide
+          </Link>
+        </div>
       </section>
 
       <section className="mx-auto mt-28 grid max-w-6xl gap-8 px-6 md:grid-cols-3">
@@ -61,19 +117,25 @@ export default function Home() {
 
       <footer className="mt-28 border-t border-slate-800 px-6 py-10 text-center text-slate-500">
         <p>© 2026 PricePeek.</p>
-        <nav aria-label="Footer navigation" className="mt-3 flex justify-center gap-5 text-sm">
-          <a className="hover:text-green-400" href="/privacy">
+        <nav
+          aria-label="Footer navigation"
+          className="mt-3 flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm"
+        >
+          <Link className="hover:text-green-400" href="/help">
+            Help
+          </Link>
+          <Link className="hover:text-green-400" href="/privacy">
             Privacy
-          </a>
-          <a className="hover:text-green-400" href="/plans">
+          </Link>
+          <Link className="hover:text-green-400" href="/plans">
             Plans
-          </a>
-          <a className="hover:text-green-400" href="/terms">
+          </Link>
+          <Link className="hover:text-green-400" href="/terms">
             Terms
-          </a>
-          <a className="hover:text-green-400" href="/status">
+          </Link>
+          <Link className="hover:text-green-400" href="/status">
             Service status
-          </a>
+          </Link>
         </nav>
       </footer>
     </main>
