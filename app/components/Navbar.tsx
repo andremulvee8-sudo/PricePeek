@@ -15,14 +15,20 @@ export default function Navbar() {
         Price<span className="text-green-400">Peek</span>
       </Link>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
+        <Link
+          href="/help"
+          className="rounded-lg px-2 py-2 text-sm text-slate-300 transition hover:text-green-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-400 sm:px-3"
+        >
+          Help
+        </Link>
         <AuthControls />
-        <a
-          href="#amazon-product-url"
+        <Link
+          href="/#amazon-product-url"
           className="hidden rounded-xl bg-green-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-green-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-400 sm:inline-flex"
         >
           Get Started
-        </a>
+        </Link>
       </div>
     </nav>
   );

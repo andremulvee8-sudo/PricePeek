@@ -495,6 +495,14 @@ Before inviting external testers:
 7. Invite a small tester group, monitor aggregate health for several scheduled
    runs, and expand only after lookup and notification failures are understood.
 
+External testers can use `/help` for the complete mobile and desktop workflow:
+copying supported Amazon links (including `a.co` share links), saving products
+with or without a current price, installing the PWA, enabling device-specific
+push alerts, signing in to sync, and managing billing. Keep this guide aligned
+with product behavior when any of those flows change. If `SUPPORT_EMAIL` is
+configured, the guide publishes that address with a reminder never to send
+credentials, payment-card details, or magic sign-in links.
+
 ## API safety
 
 All `/api/` responses are marked private and `no-store`. Mutation routes accept
