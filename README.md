@@ -193,6 +193,10 @@ receives card details. Each Checkout Session explicitly enables Stripe Managed
 Payments so Stripe acts as merchant of record for supported transactions.
 
 Only the server administrative client may update subscription rows.
+Billing reads retry the narrowly identified transient Supabase
+`PGRST303: JWT issued at future` timing failure with a short, bounded backoff.
+Other database errors are returned immediately, and billing writes are never
+automatically retried by this mechanism.
 Authenticated users may read their own row through row-level security, and
 anonymous users have no access. The application verifies the raw request body
 with Stripe's endpoint signing secret before processing a webhook. It never
