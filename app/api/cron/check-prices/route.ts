@@ -95,6 +95,17 @@ export async function GET(request: Request) {
     });
   }
 
+  const { error: feedbackCleanupError } = await supabaseAdmin
+    .from("beta_feedback")
+    .delete()
+    .lte("expires_at", new Date().toISOString());
+
+  if (feedbackCleanupError) {
+    console.error("Could not remove expired beta feedback:", {
+      code: feedbackCleanupError.code,
+    });
+  }
+
   const checkStartedAt = new Date();
 
   const { data: products, error } = await supabaseAdmin

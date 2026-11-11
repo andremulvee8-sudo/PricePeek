@@ -253,6 +253,12 @@ export default function HelpPage() {
               </>
             )}
           </p>
+          <Link
+            href="/feedback"
+            className="mt-5 inline-flex rounded-xl bg-green-500 px-5 py-3 font-semibold text-slate-950 transition hover:bg-green-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-400"
+          >
+            Send anonymous beta feedback
+          </Link>
         </aside>
 
         <div className="mt-8 flex flex-wrap gap-4 text-sm">

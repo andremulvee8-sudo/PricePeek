@@ -124,6 +124,9 @@ export default function Home() {
           <Link className="hover:text-green-400" href="/help">
             Help
           </Link>
+          <Link className="hover:text-green-400" href="/feedback">
+            Feedback
+          </Link>
           <Link className="hover:text-green-400" href="/privacy">
             Privacy
           </Link>
