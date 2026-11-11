@@ -22,6 +22,7 @@ export default function PrivacyPage() {
         <p className="mt-5 text-lg text-slate-300">
           PricePeek stores only the information needed to provide product
           tracking, account sync, abuse prevention, and optional push alerts.
+          Anonymous beta feedback is stored only when you choose to send it.
         </p>
 
         <div className="mt-10 space-y-8 text-slate-300">
@@ -39,6 +40,21 @@ export default function PrivacyPage() {
               temporary entries, including older-format entries from before
               this safeguard, are removed after seven days during scheduled
               cleanup.
+            </p>
+          </section>
+
+          <section aria-labelledby="feedback-data">
+            <h2 id="feedback-data" className="text-2xl font-semibold text-white">
+              Beta feedback
+            </h2>
+            <p className="mt-3">
+              The feedback form stores the category, area, message, and
+              submission time for up to approximately 90 days. Feedback rows
+              are not linked to your account, email, browser device identifier,
+              product records, or readable network address. Do not include
+              contact information, product links, payment details, passwords,
+              sign-in links, or API keys. The form automatically rejects common
+              examples of this sensitive content.
             </p>
           </section>
 
@@ -114,7 +130,9 @@ export default function PrivacyPage() {
           )}
         </div>
 
-        <p className="mt-10 text-sm text-slate-500">Last updated: September 4, 2026</p>
+        <p className="mt-10 text-sm text-slate-500">
+          Last updated: November 11, 2026
+        </p>
         <Link
           href="/"
           className="mt-8 inline-flex rounded-xl border border-slate-700 px-5 py-3 font-semibold transition hover:border-green-400 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-400"

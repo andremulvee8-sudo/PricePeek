@@ -119,6 +119,13 @@ server-only idempotency ledger containing Stripe event IDs, event types, and
 processing timestamps. It contains no payment details and does not modify any
 existing subscription, tracked product, or price-history row.
 
+`supabase/migrations/20261111000000_beta_feedback.sql` creates a server-only,
+anonymous beta-feedback table with strict category, area, message-length, and
+expiry constraints. It stores no account, email, device, URL, product, or
+request-address fields. Row-level security blocks browser roles, an expiry
+index supports daily cleanup, and feedback is removed after approximately 90
+days by the scheduled price-check job.
+
 Before applying it to an existing database, take a backup and test it against a
 staging copy. Existing rows that violate the new positive-price or nonnegative
 counter constraints must be corrected first. Existing duplicate `device_id`
@@ -176,6 +183,9 @@ keyed rate-limit identifiers, proxy address selection, and `Retry-After`
 calculation.
 Beta-readiness tests cover unavailable-price guidance, sign-in-link cooldowns,
 and privacy-safe lookup/push aggregate summaries.
+Feedback tests cover allowed categories and areas, message normalization and
+limits, and rejection of email addresses, links, credentials, JWTs, and valid
+payment-card numbers.
 Production-monitor tests cover strict health-response parsing and reject health
 URLs that contain credentials, query parameters, fragments, or non-HTTPS
 origins.
@@ -502,6 +512,14 @@ push alerts, signing in to sync, and managing billing. Keep this guide aligned
 with product behavior when any of those flows change. If `SUPPORT_EMAIL` is
 configured, the guide publishes that address with a reminder never to send
 credentials, payment-card details, or magic sign-in links.
+
+The public `/feedback` page accepts one-way anonymous beta feedback without
+requesting sign-in or contact details. Submissions are limited to three per
+keyed request-address digest per hour, and the digest is stored only in the
+existing temporary rate-limit table. The API never logs feedback text and never
+returns a feedback row ID. Apply the beta-feedback migration before deploying
+this route; do not collect submissions until the private table and expiry index
+exist.
 
 ## API safety
 
